@@ -114,3 +114,16 @@ body{font-size:13px;letter-spacing:-.012em}.vf-brand{height:88px;padding:0 21px;
 #test-output{margin-top:1.2rem}
 /* Login overlay */
 .auth-card{border-radius:18px;padding:2.2rem}
+
+/* ---------- LIVE hero: metric tiles + timer ---------- */
+.live-hero .panel-body{padding:1.5rem 1.6rem 1.4rem}
+.gpu-params{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin:0 0 1.6rem}
+.metric-tile{background:rgba(255,255,255,.035);border:1px solid rgba(148,121,213,.22);border-left:3px solid var(--tile,#9479d5);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:6px}
+.metric-tile span{font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:#8f88a8}
+.metric-tile strong{font-size:1.02rem;font-weight:650;color:#fff;overflow-wrap:anywhere;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.metric-tile small{font-size:.72rem;color:#8f88a8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.t-violet{--tile:#a78bfa}.t-blue{--tile:#60a5fa}.t-amber{--tile:#fbbf24}.t-teal{--tile:#2dd4bf}.t-green{--tile:#4be3a0}
+.ops-big{font-size:56px;line-height:1.15;padding:.15rem .2rem .1rem;margin:0 0 .7rem;letter-spacing:-.01em}
+.ops-progress{height:18px;border-radius:99px}
+.live-hero .progress-caption{font-size:.88rem;margin-top:.55rem;padding:0 .1rem}
+.ops-timer{font-size:1.15rem!important;letter-spacing:.02em;color:#4be3a0!important;font-variant-numeric:tabular-nums}

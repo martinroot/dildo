@@ -51,7 +51,13 @@ function live(){const g=state.gpu,inst=g.instance,j=state.jobs.find(x=>['running
 const prevIn=$('test-input')?.value,prevOut=$('test-output')?.textContent,prevBusy=/Running/.test(prevOut||'');const tot=j?.progress?.total??(j?.preset==='smoke'?12:160),cur=j?.progress?.current??0,pc=pct(cur,tot),phase=j?.progress?.phase||j?.status.phase||'queued',training=phase==='training'||String(phase).startsWith('evaluating');
 const hero=(j?`<section class="panel live-hero">
 <div class="gpu-device gpu-bright">${icon('gpu')}<div><strong>${esc(inst.gpu_name||'Vast GPU')}</strong><small>${inst.id?'INSTANCE #'+inst.id+' · '+esc(inst.actual_status||'')+' · $'+Number(inst.dph_total||0).toFixed(3)+'/h':'waiting for instance'}</small></div><span style="margin-left:auto">${stateBadge(j.status.state)}</span></div>
-<div class="gpu-params"><div class="kv"><span>Run</span><strong>${esc(j.source_dataset)}<small class="mono"> · ${esc(j.preset)} · ${short(j.id)}</small></strong></div><div class="kv"><span>Model</span><strong>${esc(j.model.split('/').at(-1))}</strong></div><div class="kv"><span>Cost now</span><strong>${inst.id?'$'+Number(inst.dph_total||0).toFixed(3)+' / h':'$0'}</strong></div><div class="kv"><span>Limits</span><strong>$${state.settings.gpu.max_dph.toFixed(2)}/h · ${state.settings.gpu.max_minutes} min</strong></div></div>
+<div class="gpu-params">
+<div class="metric-tile t-violet"><span>Run</span><strong>${esc(j.source_dataset)}</strong><small class="mono">${esc(j.preset)} · ${short(j.id)}</small></div>
+<div class="metric-tile t-blue"><span>Model</span><strong>${esc(j.model.split('/').at(-1))}</strong><small>${esc(j.executor==='vast'?'Vast GPU':'local')}</small></div>
+<div class="metric-tile t-amber"><span>Cost now</span><strong>${inst.id?'$'+Number(inst.dph_total||0).toFixed(3)+' / h':'$0'}</strong><small>ceiling $${state.settings.gpu.max_dph.toFixed(2)}/h</small></div>
+<div class="metric-tile t-teal"><span>Limits</span><strong>${state.settings.gpu.max_minutes} min</strong><small>auto-release after run</small></div>
+<div class="metric-tile t-green"><span>Elapsed</span><strong class="mono ops-timer">${esc((()=>{const s=Math.max(0,(Date.now()-Date.parse(j.created_at))/1000|0);const h=s/3600|0,m=s%3600/60|0,x=s%60;return (h?h+':':'')+String(m).padStart(2,'0')+':'+String(x).padStart(2,'0');})())}</strong><small>since ${date(j.created_at)}</small></div>
+</div>
 <div class="ops-big ${training?'ops-green':''}">${training?pc+'%':esc(phaseLabel(phase))}</div>
 <div class="progress ops-progress ${training?'ops-green':''}"><div class="progress-bar ${training?'':'ops-pulse'}" style="width:${training?pc:8}%"></div></div>
 <div class="progress-caption"><span>${training?`step ${cur} / ${tot} · loss ${telemetry?.loss_series?.filter(p=>p.loss!==undefined).at(-1)?.loss?.toFixed(4)??'…'}`:esc(phaseLabel(phase))}</span><span>${j.executor==='vast'?'vast.ai · '+esc(inst.gpu_name||'GPU'):'local worker'}</span></div>
