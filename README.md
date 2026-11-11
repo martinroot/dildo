@@ -1,167 +1,157 @@
-# DILDO / FineTune Workspace
+# DILDO MLL
 
-Рабочий FineTune-портал для **dildo.asia** на Bootstrap и стилях трекера из исходного архива. Python control plane + существующий LoRA trainer + локальный worker + Vast.ai SSH executor. Без сборки фронтенда, CDN и Node-зависимостей.
+# Finetune for everyone
 
-## Три контура
+**Qwen3.5 + vast.ai API key = a trained adapter in 5 minutes, for $0.07.**
 
-| Контур | Разделы | Что происходит |
+A working fine-tune platform powering **dildo.asia**: Python control plane + LoRA trainer + local worker + Vast.ai SSH executor + a single-page portal (no frontend build step, no CDN, no Node dependencies).
+
+| Fact | Value |
+| --- | --- |
+| Smoke run end-to-end | ~5 min |
+| Typical adapter cost | $0.07 (Standard runs: $0.07–$1) |
+| Portable artifact | ~30 MB LoRA adapter ZIP |
+| Base model | Qwen3.5-0.8B |
+
+## What it does
+
+1. **Register** — quick login & password; sessions are HMAC-signed cookies (30 days), passwords hashed with PBKDF2 (200k iterations). Machine clients use a Bearer token instead.
+2. **Enter a vast.ai API key** — on-demand RTX 3090/4090, rented per run and released automatically.
+3. **Upload Excel / CSV / TXT** — converted to immutable JSONL dataset versions with schema, duplicate and train/test leakage checks; every run records the SHA-256 of the data it trained on.
+4. **Define acceptance criteria** — minimum held-out examples, slice accuracy, valid-JSON rate, no-regression: enforced server-side before activation.
+5. **Train** — one click rents a GPU, uploads data + trainer over SSH, streams live progress (phase, %, step, loss), evaluates base vs adapter and collects artifacts before releasing the instance.
+6. **Download** — the adapter ZIP: `adapter_model.safetensors`, `adapter_config.json`, tokenizer, `report.json`, `job.json`. Loadable with PEFT anywhere.
+
+After training, adapters live in a catalog with metrics and cost history; the active one can be probed **hot** (resident model server, ~8 s per prediction, up to 20 snapshots per request) or downloaded. Every run's cost (hourly rate × wall time), duration and outcome is recorded in a history table.
+
+## Three concerns
+
+| Area | Portal pages | What happens |
 | --- | --- | --- |
-| Данные | Datasets, DataAPI | Импорт train/test JSONL, строгая схема, дубликаты, утечка, временное разделение, реестр push-провайдеров |
-| Обучение | Training runs, Vast.ai GPU, Workers | Очередь, CPU/CUDA, автоматический GPU-цикл, loss по шагам, прогресс и диагностические журналы |
-| Качество и выпуск | Before / after, Chat & test logs, MLL Base, Training criteria | Сравнение Base/LoRA, реальные ответы, серверные критерии допуска, активация и скачивание адаптеров |
+| Data | LIVE (test panel), Advanced → Datasets / DataAPI | Import train/test JSONL, strict schema, duplicates, leakage, time separation, push-provider registry |
+| Training | LIVE, LoRA Model, History | Queue, CPU/CUDA, automatic GPU lifecycle, per-step loss, progress, logs, cost tracking |
+| Quality & release | Results, Advanced → Training criteria | Base/LoRA comparison, real response traces, server-enforced release gates, activation & download |
 
-Overview объединяет эти три контура. **Explore demo** показывает отдельные иллюстративные данные; операции записи и аренды в нём запрещены. Настоящая рабочая область не содержит выдуманных метрик.
+## Quick start (interface)
 
-## Быстрый запуск интерфейса
-
-Control API требует только Python 3.10+; torch нужен именно тренеру.
+The control plane needs only Python 3.10+; torch is required for the trainer only.
 
 ```bash
-cd ft-node
 FT_DIR="$PWD/local-data" python3 ft_node.py
 ```
 
-Открыть http://127.0.0.1:8094/ или `/ui`. Старые API `/status`, `/jobs`, `/report/{id}` сохранены. `/` теперь открывает портал; для машинного статуса использовать `/status`.
+Open http://127.0.0.1:8094/. Data routes answer `401` until you register a user (the first registration works right in the portal UI) or send a Bearer token.
 
-Для просмотра всех экранов без модели: **Explore demo**. Для локальной проверки данных: **Datasets → Synthetic dataset**. Это создаёт 512/48 синтетических примеров и ничего не обучает.
+## Server installation
 
-## Установка на сервер
+Sources live in `/opt/ft-node`, data in `/var/lib/ft-node` (owner `ft-node:ft-node`, mode `0700`).
 
-Исходники размещаются в `/opt/ft-node`, данные — `/var/lib/ft-node`. Не заменять существующее хранилище данных при обновлении. Перед обновлением остановить активные задания и сохранить резервную копию данных и конфигурации.
+1. Create the `ft-node` system user and the data directory.
+2. Copy the project to `/opt/ft-node`; create a venv: `python3 -m venv /opt/ft-node/.venv`.
+3. For local training install PyTorch and `pip install -r requirements.txt` inside the venv. The portal and the remote Vast executor do not need torch.
+4. Copy `deploy/ft-node.env.example` to `/etc/ft-node/ft-node.env` and set a real `FT_API_TOKEN` (file `root:ft-node`, `0640`).
+5. Install `ft-node.service`, `ft-worker.service` and `ft-predict.service` (resident hot-testing server, keeps the base model in RAM) into `/etc/systemd/system`; `systemctl daemon-reload` and start them.
+6. For local training place a Qwen3.5 checkpoint in `/opt/ft-node/models/base` (the unit sets `HF_HUB_OFFLINE=1` and memory limits).
+7. Terminate HTTPS in nginx; template in `deploy/nginx-dildo.conf.example`. The app itself handles authentication — do not put Basic auth in front unless you also trust `X-FT-Authenticated` from a local proxy.
 
-1. Создать системного пользователя `ft-node`, каталог `/var/lib/ft-node` с владельцем `ft-node:ft-node` и правами `0700`.
-2. Распаковать проект в `/opt/ft-node`. Создать `.venv`: `python3 -m venv /opt/ft-node/.venv`.
-3. Для локального обучения установить подходящий PyTorch и `pip install -r requirements.txt` внутри `.venv`. Для интерфейса и удалённого Vast executor это не требуется.
-4. Скопировать `deploy/ft-node.env.example` в `/etc/ft-node/ft-node.env`, указать настоящий `FT_API_TOKEN`. Файл `root:ft-node`, `0640`. Не использовать значение-заглушку.
-5. Установить `ft-node.service` и при необходимости `ft-worker.service` в `/etc/systemd/system`, выполнить `systemctl daemon-reload` и запустить нужные службы.
-6. Для локального воркера положить совместимый Qwen3.5 checkpoint в `/opt/ft-node/models/base`. Существующий unit использует `HF_HUB_OFFLINE=1` и лимит памяти 2600M. Для другой модели/нагрузки изменить ограничения осознанно.
-7. Настроить HTTPS и Basic authentication в nginx. Шаблон — `deploy/nginx-dildo.conf.example`; создать `/etc/nginx/ft-node.htpasswd`, проверить `nginx -t`, затем reload. HTTPS-сертификат и пароль не создаются автоматически.
+The API stays on loopback. Never set `FT_BIND=0.0.0.0` in production. External clients use `/api/*` with a Bearer token; browsers use register/login sessions.
 
-API остаётся на loopback. Не выставлять `FT_BIND=0.0.0.0` в production: заголовок `X-FT-Authenticated` доверяется только локальному аутентифицирующему proxy. Nginx перезаписывает этот заголовок. Для внешних клиентов маршрут `/api/*` использует Bearer token, браузерный интерфейс — Basic auth.
+## Vast.ai executor
 
-## Vast.ai: настройка и работа
+- The Vast API key stays on the controller (`/etc/ft-node/vast_api_key` or `VAST_API_KEY`); it is never sent to the GPU.
+- Private SSH key: `/etc/ft-node/id_ed25519` (`FT_SSH_KEY`); add its public half to your Vast.ai account. Owner `ft-node`, mode `0600`.
+- GPU image or SSH-compatible template hash is configured in the portal (default: PyTorch CUDA image). `FT_REMOTE_MODEL` selects the training checkpoint. Gated Hugging Face models and HF token delivery are not supported.
+- SSH uses TOFU (`accept-new`); `known_hosts` is kept in `FT_DIR`.
 
-В исходном архиве `gpu_vast.py` был привязан к GPU/Comfy endpoint, а «cycle» выполнял только up/health/status. Здесь вместо него реализован FineTune executor по SSH.
+**Debug flow:** Search marketplace → Provision → Health check → Release instance. Search is free; a provisioned debug instance bills until released.
 
-### Настройка один раз
+**Automatic flow:** pick dataset + preset → Launch automatic run.
 
-- На контроллере нужны `ssh`, `scp`, выход в интернет к Vast API и SSH-серверам.
-- API-ключ Vast хранить в `/etc/ft-node/vast_api_key` либо `VAST_API_KEY`. Он не передаётся на GPU.
-- Приватный SSH-ключ: `/etc/ft-node/id_ed25519` (`FT_SSH_KEY`); публичную часть заранее добавить в свой аккаунт Vast.ai. Владельцем ключа должен быть `ft-node`, права `0600`.
-- Указать GPU image или SSH-совместимый Vast template hash в **Vast.ai GPU**. По умолчанию задан образ PyTorch CUDA; шаблон из старого архива автоматически не используется, поскольку он ожидал другой worker API.
-- `FT_REMOTE_MODEL` — checkpoint для удалённого обучения. Закрытые/gated HF-модели и доставка HF-токенов в этом варианте не поддерживаются.
-- Папка `known_hosts` создаётся в FT_DIR. SSH использует TOFU (`accept-new`): новый ключ хоста принимается, изменившийся ключ отклоняется.
+1. The dataset is re-validated and a private copy is snapshotted for the job.
+2. An offer is found within GPU / VRAM / price / reliability limits.
+3. Exactly one tracked instance is created; its ID and unique label are persisted before readiness is awaited.
+4. Trainer, worker, dependencies, JSONL splits and metadata are uploaded over SSH.
+5. The remote worker trains and evaluates base and adapter on identical held-out examples.
+6. The controller collects status / progress / metrics / logs, then the full `result/` with the adapter weights.
+7. The tracked instance is deleted on success, on ordinary errors, on cancellation and on timeout.
 
-### Отладочный режим
+The time limit includes provisioning / install / training and is enforced by the controller; network timeouts and cleanup add latency, so it is not a hard provider-side billing cap. Storage/transfer are billed separately. If the controller dies mid-run (SIGKILL, host crash, Vast API outage), cleanup is not guaranteed: check the saved instance ID and the Vast console, then Sync / Release manually. There is no automatic re-rent after an ambiguous network failure — check the console first so a second lease is not created. Deletion is limited to the exact saved ID and unique label; there is no prefix-based bulk cleanup.
 
-**Search marketplace → Provision → Health check → Release instance.** Поиск не тратит деньги. Provision арендует выбранный дешёвый подходящий оффер; инстанс остаётся включённым до Release. Health проверяет NVIDIA и PyTorch/CUDA. Debug-инстанс нельзя одновременно использовать для автоматического цикла — сначала освободить его.
+## Datasets and DataAPI
 
-### Автоматический режим
-
-**Выбрать dataset и preset → Launch automatic run.**
-
-1. Повторно проверяется датасет, фиксируется отдельная копия для задания.
-2. Ищется оффер в пределах GPU/VRAM/price/reliability.
-3. Создаётся ровно один отслеживаемый инстанс; ID и уникальный label сохраняются до ожидания готовности.
-4. По SSH загружаются trainer, worker, зависимости, JSONL и метаданные.
-5. Worker выполняет обучение и одинаковую held-out оценку base/adapter.
-6. Контроллер забирает status/progress/metrics/logs, затем полный `result/` с весами адаптера.
-7. Свой отслеживаемый инстанс удаляется также при обычных ошибках, отмене и превышении времени.
-
-Лимит времени включает provisioning/install/training и проверяется контроллером; сетевые timeout/cleanup добавляют задержку, поэтому это не жёсткий денежный лимит провайдера. Storage/transfer оплачиваются отдельно. При остановке контроллера, SIGKILL, аварии хоста или недоступности Vast API cleanup не гарантирован: проверить сохранённый instance ID и консоль Vast, затем **Sync / Release**. Автоматического retry аренды после неоднозначного сетевого результата нет: сначала проверить консоль, чтобы не создать вторую аренду. Для гарантированного внешнего ограничения нужен независимый provider-side watchdog.
-
-Не делается массовое удаление инстансов по префиксу. Удаление ограничено конкретным сохранённым ID и точным уникальным label.
-
-## Датасеты и DataAPI
-
-Поддерживается **tracker-policy-v1**, соответствующий приложенному trainer. Это не универсальная система обучения всех архитектур и форматов.
+The bundled trainer implements **tracker-policy-v1** — snapshot → decision JSON. It is not a universal trainer for arbitrary architectures.
 
 ```json
 {"input":{"as_of":"2026-01-01T00:00:00+00:00","slices":[{"slice_id":"1290:BR","clicks":300,"conversions":4,"profit_cents":70,"postbacks_mature":true}]},"output":[{"slice_id":"1290:BR","action":"scale","reason":"profit"}]}
 ```
 
-- 1–3 slices на input; поля и action/reason проверяются функциями самого trainer.
-- В `test.jsonl` все timestamps должны быть позже всех train timestamps.
-- Повторные input внутри split и пересечение train/test запрещены.
-- Датасет с тем же именем нельзя перезаписать: импортировать новую версию.
-- На запуск копируются файлы dataset и фиксируется SHA-256 импорта. Старые job/dataset каталоги сохраняются.
-- Providers — реестр **push-источников**, не фоновый pull/scheduler. Продюсер отправляет данные сам.
-
-Публичный запрос (тело — JSON с JSONL-строками):
+- 1–3 slices per input; fields and `action`/`reason` values are validated by the trainer.
+- All test timestamps must be strictly newer than every train timestamp; duplicate inputs and train/test intersections are rejected.
+- Dataset versions are immutable — import a new version instead of overwriting; the SHA-256 of each import is recorded.
+- Providers are a registry of **push** sources, not a background scheduler.
 
 ```bash
 curl --fail-with-body https://dildo.asia/api/datasets/import \
-  -H "Authorization: Bearer $FT_API_TOKEN" \
+  -H "Authorization: Bearer ***" \
   -H 'Content-Type: application/json' \
   --data-binary @dataset-payload.json
 ```
 
-DataAPI workbench отправляет настоящий запрос к локальному API портала: validation без записи либо import с созданием версии. Максимальное тело: 16 MiB. API debugger не делает произвольные внешние HTTP-запросы.
-
-## Пресеты и критерии
+## Presets and release gates
 
 | Preset | Steps | Gradient accumulation | Held-out examples |
 | --- | ---: | ---: | ---: |
-| smoke | 12 | 1 | до 4 |
-| standard | 160 | 4 | до 16 |
+| smoke | 12 | 1 | up to 4 |
+| standard | 160 | 4 | up to 16 |
 
-LoRA rank 8, alpha 16, learning rate 2e-4, max length 640, seed 2026. Обучается Qwen3.5 text decoder. Параметры отражены в UI; произвольный выбор архитектуры не имитируется.
+LoRA rank 8, alpha 16, learning rate 2e-4, max length 640, seed 2026, deterministic decode (180 tokens).
 
-Активация проверяется **на сервере**, а не только в браузере: завершённый job, наличие весов, минимум тестов (8 по умолчанию), JSON validity (100%), slice accuracy (80%) и отсутствие регрессии к base. Smoke не проходит минимальное количество тестов по умолчанию. Локальные изменения критериев сохраняются, актуальные критерии применяются при активации. Предыдущий active ID сохраняется.
+Activation is verified **server-side**: completed job, adapter weights present, minimum held-out examples (8 by default), 100% valid JSON, ≥80% slice accuracy, no regression versus base. Smoke runs intentionally fail the example-count gate. The previously active adapter ID is retained.
 
-`MLL Base → Download` возвращает ZIP с adapter, job.json и report.json. Это **LoRA adapter**, не слитый полный checkpoint. Активация меняет pointer для `worker.py --predict`, но не разворачивает публичный inference endpoint.
-
-`Chat & test logs` — записи настоящей evaluation (до 100 примеров), включая raw output при невалидном ответе. Интерактивного online-chat/inference в этом релизе нет.
+`Download` returns a ZIP with the adapter, `job.json` and `report.json` — a **LoRA adapter**, not a merged full checkpoint. Activation switches the pointer used by `worker.py --predict` and the resident hot-testing server; it does not deploy a public inference endpoint.
 
 ## API
 
-Для внешнего nginx-маршрута добавить `/api` к следующим путям.
-
-| Метод | Путь | Действие |
+| Method | Path | Action |
 | --- | --- | --- |
-| GET | `/status` | Воркеры, модели, datasets, jobs, settings, GPU |
-| GET | `/jobs` | История запусков |
-| GET | `/progress/{job}` | Прогресс, loss series, tail лога |
-| GET | `/report/{job}` | Base/LoRA отчёт + актуальные release gates |
-| GET | `/export/{job}` | Скачать JSON отчёта |
-| GET | `/artifacts/{job}` | Скачать адаптер + metadata ZIP |
-| GET | `/gpu/state` | Сохранённый GPU state / offers / operations |
-| GET | `/operations/{id}` | Статус и журнал GPU операции |
-| POST | `/datasets/validate` | `{"name":"id"}` либо `{"train":"…","test":"…"}` |
-| POST | `/datasets/import` | `{"name","provider","train","test"}` |
-| POST | `/datasets/demo` | Создать синтетический demo dataset |
+| POST | `/auth/register` · `/auth/login` · `/auth/logout` | Quick accounts; register/login are public and set the session cookie |
+| GET | `/status` | Workers, models, datasets, jobs, settings, GPU |
+| GET | `/jobs` | Run history (duration, GPU cost, metrics) |
+| GET | `/progress/{job}` | Progress, loss series, log tail |
+| GET | `/report/{job}` | Base/LoRA report + current release gates |
+| GET | `/export/{job}` | Download the JSON report |
+| GET | `/artifacts/{job}` | Download the adapter + metadata ZIP |
+| GET | `/gpu/state` · `/operations/{id}` | GPU state / operation status & log |
+| POST | `/predict` | Run snapshots through an adapter (up to 20) |
+| POST | `/jobs/delete` | Delete a finished run and its adapter |
+| POST | `/datasets/validate` · `/datasets/import` · `/datasets/demo` | Dataset management |
 | POST | `/providers/save` | `{"name","description"}` |
-| POST | `/jobs/queue` | `{"dataset","preset":"smoke|standard","device":"cpu|cuda"}` |
-| POST | `/jobs/cancel` | `{"job":"id"}` |
-| POST | `/jobs/activate` | `{"job":"id"}` |
+| POST | `/jobs/queue` · `/jobs/cancel` · `/jobs/activate` | Run management |
 | POST | `/settings` | `{"criteria":{…}}` / `{"gpu":{…}}` |
-| POST | `/gpu/search,status,health,up` | `{}`; асинхронная операция |
-| POST | `/gpu/down` | `{"instance_id":123}` — подтверждение сохранённого ID |
-| POST | `/gpu/cycle` | `{"dataset","preset"}` — платный автоматический запуск |
+| POST | `/gpu/search,status,health,up` | `{}`; asynchronous operation |
+| POST | `/gpu/down` | `{"instance_id":123}` — confirmation against the saved ID |
+| POST | `/gpu/cycle` | `{"dataset","preset"}` — paid automatic run |
 
-## Проверка и ограничения этой поставки
+## Verification and limits
 
 ```bash
 python3 -m unittest discover -s tests -v
 node --check assets/ftstudio.js
-python3 -m py_compile ft_node.py gpu_vast.py worker.py trainer.py
+python3 -m py_compile ft_node.py gpu_vast.py worker.py trainer.py predict_server.py
 ```
 
-Тесты используют временные каталоги и mock Vast; не арендуют GPU. Проверяются validation/leakage/duplicates, immutable import/snapshot, release gates, отсутствие артефакта, heartbeat, settings, отмена, структурные метрики, HTTP/assets/auth и GPU cleanup/ownership. UI проверяется отдельно в браузере.
+Tests use temporary directories and a mocked Vast API; they never rent GPUs. They cover validation/leakage/duplicates, immutable imports, release gates, missing artifacts, heartbeat, settings, cancellation, structured metrics, HTTP/assets/**register-login-sessions** and GPU cleanup/ownership. The UI is verified separately in a browser.
 
-В этой сборочной среде не запускалось фактическое обучение Qwen и не было оплаченной аренды Vast.ai. Для окончательной проверки на вашем аккаунте нужны ключ API, SSH-ключ с доступом в Vast и smoke-запуск. На dildo.asia проект автоматически не установлен: архив содержит код и конфигурационные примеры для вашего сервера.
+## Files
 
-## Файлы
+- `ft_node.py` — control plane, auth, API and UI serving.
+- `predict_server.py` — resident hot-testing server (base model stays in RAM, adapters hot-swapped).
+- `trainer.py` — LoRA training + evaluation + `metrics.jsonl`.
+- `worker.py` — local queue and remote `--executor vast --once`.
+- `gpu_vast.py` — provisioning / SSH / collect / cleanup, per-run cost recording.
+- `assets/` — the portal (`index.html`, `ftstudio.js`, `portal.css`, bundled styles).
+- `deploy/` — env and nginx examples. `tests/` — free-to-run checks.
 
-- `ft_node.py` — control plane и раздача UI.
-- `assets/index.html`, `ftstudio.js`, `portal.css` — портал.
-- `assets/bootstrap-6.min.css`, `workspace.css` — исходные Bootstrap/стили трекера, сохранены.
-- `trainer.py` — LoRA + evaluation + `metrics.jsonl`.
-- `worker.py` — локальная очередь и удалённый `--executor vast --once`.
-- `gpu_vast.py` — provisioning/SSH/collect/cleanup.
-- `deploy/` — env и nginx примеры.
-- `tests/` — проверки без платных ресурсов.
+## Sources
 
-## Источники интеграции
-
-Пути поиска/создания/удаления инстансов сверены с официальной [Vast.ai REST API](https://vast.ai/developers/api). Формат SSH-инстанса сопоставлен с [официальным CLI](https://github.com/vast-ai/vast-python). Проверка контракта API не заменяет smoke-запуск на конкретном аккаунте и образе.
+Instance search/create/delete paths were checked against the official [Vast.ai REST API](https://vast.ai/developers/api); the SSH instance format matches the [official CLI](https://github.com/vast-ai/vast-python). A contract check does not replace a smoke run on your own account and image.
