@@ -2,15 +2,18 @@
 
 # Finetune for everyone
 
-**Qwen3.5 + vast.ai API key = a trained adapter in 5 minutes, for $0.07.**
+**Qwen3.5 + vast.ai API key = a trained adapter in ~10 minutes, from $0.03.**
 
 A working fine-tune platform powering **dildo.asia**: Python control plane + LoRA trainer + local worker + Vast.ai SSH executor + a single-page portal (no frontend build step, no CDN, no Node dependencies).
 
+Facts measured on a real smoke run (RTX 3090 at $0.17/h on vast.ai):
+
 | Fact | Value |
 | --- | --- |
-| Smoke run end-to-end | ~5 min |
-| Typical adapter cost | $0.07 (Standard runs: $0.07–$1) |
+| Smoke run (12 steps) end-to-end | ~10 min · ~$0.03 |
+| Standard run (160 steps) | ~30 min · $0.08–0.12 |
 | Portable artifact | ~30 MB LoRA adapter ZIP |
+| Compute | on-demand RTX 3090 / 4090 |
 | Base model | Qwen3.5-0.8B |
 
 ## What it does
