@@ -1,0 +1,33 @@
+[Unit]
+Description=FT-Node FineTune worker (queue consumer)
+After=network.target ft-node.service
+
+[Service]
+Type=simple
+User=ft-node
+Group=ft-node
+WorkingDirectory=/opt/ft-node
+Environment=FT_DIR=/var/lib/ft-node
+EnvironmentFile=-/etc/ft-node/ft-node.env
+Environment=RTB_FINETUNE_DIR=/var/lib/ft-node
+Environment=RTB_FINETUNE_MODEL=/opt/ft-node/models/base
+Environment=HF_HOME=/var/lib/ft-node/hf
+Environment=HF_HUB_OFFLINE=1
+ExecStart=/opt/ft-node/.venv/bin/python /opt/ft-node/worker.py --threads 2
+Restart=on-failure
+RestartSec=5
+UMask=0077
+StateDirectory=ft-node
+StateDirectoryMode=0700
+Nice=10
+# On CPU host keep conservative; raise CPUQuota on GPU host
+CPUQuota=60%
+MemoryMax=2600M
+MemorySwapMax=1G
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
