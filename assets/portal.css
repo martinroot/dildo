@@ -18,3 +18,19 @@ body{font-size:13px;letter-spacing:-.012em}.vf-brand{height:88px;padding:0 21px;
 .live-details>summary{cursor:pointer;color:#9b93b5;font-size:.85rem;padding:.4rem .2rem;user-select:none}
 .live-details>summary:hover{color:#bfa8ef}
 .live-details[open]>summary{color:#bfa8ef}
+
+/* PROMO landing */
+.promo-hero{text-align:center;padding:min(19vh,180px) 1rem 3rem}
+.promo-brand{font-size:min(15vw,9.5rem);font-weight:800;letter-spacing:-.03em;line-height:1;background:linear-gradient(120deg,#fff 10%,#bfa8ef 55%,#7f5fd0 90%);-webkit-background-clip:text;background-clip:text;color:transparent;text-transform:uppercase}
+.promo-slogan{font-size:1.6rem;color:#cfc8e6;margin:1.2rem 0 .6rem}
+.promo-formula{font-size:1.05rem;color:#9b93b5}
+.promo-formula strong{color:#bfa8ef}
+.steps-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.9rem}
+.step-card{background:rgba(148,121,213,.07);border:1px solid rgba(148,121,213,.3);border-radius:12px;padding:1rem .9rem}
+.step-num{width:30px;height:30px;border-radius:50%;background:#7f5fd0;color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;margin-bottom:.6rem}
+.step-card strong{display:block;margin-bottom:.35rem;font-size:.95rem}
+.step-card p{margin:0;font-size:.8rem;color:#9b93b5;line-height:1.45}
+.promo-tech{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:1.4rem}
+.promo-tech h3{font-size:1rem;margin-bottom:.5rem;color:#bfa8ef}
+.promo-tech p{font-size:.9rem;color:#b6aecf;line-height:1.6;margin:0}
+.promo-tech code{color:#cfc8e6;background:rgba(148,121,213,.15);padding:0 .3em;border-radius:4px}
