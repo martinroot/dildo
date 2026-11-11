@@ -44,3 +44,8 @@ body{font-size:13px;letter-spacing:-.012em}.vf-brand{height:88px;padding:0 21px;
 .auth-tab.active{background:#7f5fd0;border-color:#7f5fd0;color:#fff}
 #auth-overlay .form-control{margin-top:.7rem;background:#141020;border-color:rgba(148,121,213,.35);color:#e6e1f5}
 .auth-error{color:#ff8da1;font-size:.85rem;margin:.7rem 0 0}
+
+/* GitHub button in the portal topbar */
+.btn-gh-top{display:inline-flex;align-items:center;gap:.45rem;background:#000;color:#fff;border:1px solid #333;border-radius:10px;padding:.42rem .9rem;font-weight:600;font-size:.85rem}
+.btn-gh-top:hover{background:#111;border-color:#7f5fd0;color:#fff}
+.btn-gh-top svg{width:18px;height:18px;fill:#fff}

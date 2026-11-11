@@ -210,7 +210,15 @@ def progress_view(jid):
     return {'progress':read_json(d/'progress.json'),'log_tail':tail,'loss_series':series}
 
 def gpu_key_present():
-    return bool(os.getenv('VAST_API_KEY')) or Path(os.getenv('FT_VAST_KEY','/etc/ft-node/vast_api_key')).is_file()
+    return bool(os.getenv('VAST_API_KEY')) or Path(os.getenv('FT_VAST_KEY','/etc/ft-node/vast_api_key')).is_file() or (FT_DIR/'vast_api_key').is_file()
+
+def save_vast_key(p):
+    """Store a vast.ai API key from the portal into FT_DIR (chmod 600)."""
+    key=str(p.get('vast_api_key') or '').strip()
+    if not re.fullmatch(r'[0-9a-zA-Z_-]{20,120}',key): raise ValueError('That does not look like a vast.ai API key')
+    (FT_DIR/'vast_api_key').write_text(key+'\n')
+    (FT_DIR/'vast_api_key').chmod(0o600)
+    return {'saved':True}
 def gpu_state():
     ops=[read_json(p) for p in sorted((FT_DIR/'operations').glob('*.json'),reverse=True)][:12]
     return {'configured':gpu_key_present(),'ssh_configured':Path(os.getenv('FT_SSH_KEY','/etc/ft-node/id_ed25519')).is_file(),
@@ -472,7 +480,7 @@ class Handler(BaseHTTPRequestHandler):
             routes={'/datasets/import':import_dataset,'/datasets/validate':validate_dataset,'/datasets/demo':demo_dataset,
                     '/gpu/demo-dataset':demo_dataset,'/jobs/queue':queue_job,'/jobs/cancel':cancel,'/jobs/activate':activate,
                     '/settings':save_settings,'/providers/save':provider_save,'/predict':predict_test,'/jobs/delete':job_delete,
-                    '/auth/register':user_register,'/auth/login':user_login,'/auth/logout':user_logout}
+                    '/auth/register':user_register,'/auth/login':user_login,'/auth/logout':user_logout,'/vast-key':save_vast_key}
             public={'/auth/register','/auth/login'}
             if self.path not in public and not self.authed(): return self.reply(401,{'error':'Authentication required','auth':True})
 

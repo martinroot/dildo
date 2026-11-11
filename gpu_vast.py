@@ -19,12 +19,14 @@ from ft_node import FT_DIR, ROOT, read_json, write_json, settings, utc, job_dir,
 
 API='https://console.vast.ai/api/v0'
 KEY_PATH=Path(os.getenv('FT_VAST_KEY','/etc/ft-node/vast_api_key'))
+# The portal can also save the key into FT_DIR; check it as a fallback.
+PORTAL_KEY=FT_DIR/'vast_api_key'
 SSH_KEY=Path(os.getenv('FT_SSH_KEY','/etc/ft-node/id_ed25519'))
 SSH_KNOWN=FT_DIR/'known_hosts'
 
 class Vast:
     def __init__(self):
-        self.key=os.getenv('VAST_API_KEY') or (KEY_PATH.read_text().strip() if KEY_PATH.is_file() else '')
+        self.key=os.getenv('VAST_API_KEY') or (KEY_PATH.read_text().strip() if KEY_PATH.is_file() else '') or (PORTAL_KEY.read_text().strip() if PORTAL_KEY.is_file() else '')
         if not self.key: raise ValueError('VAST_API_KEY is not configured')
         self.cfg=settings()['gpu']; self.deadline=time.monotonic()+self.cfg['max_minutes']*60
         self.job=None
