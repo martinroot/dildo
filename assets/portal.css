@@ -49,3 +49,22 @@ body{font-size:13px;letter-spacing:-.012em}.vf-brand{height:88px;padding:0 21px;
 .btn-gh-top{display:inline-flex;align-items:center;gap:.45rem;background:#000;color:#fff;border:1px solid #333;border-radius:10px;padding:.42rem .9rem;font-weight:600;font-size:.85rem}
 .btn-gh-top:hover{background:#111;border-color:#7f5fd0;color:#fff}
 .btn-gh-top svg{width:18px;height:18px;fill:#fff}
+
+/* LIVE hero: self-contained dark card, independent of theme */
+.live-hero{background:linear-gradient(135deg,#221c38,#171327)!important;color:#e6e1f5;border:1px solid rgba(148,121,213,.5)!important;box-shadow:0 10px 34px rgba(0,0,0,.4)}
+.live-hero .panel-body{padding:1.1rem 1.2rem}
+.gpu-params{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.7rem 1.4rem;margin:.9rem 0}
+.live-hero .kv{display:flex;flex-direction:column;gap:.15rem;border-left:3px solid rgba(148,121,213,.55);padding-left:.7rem}
+.live-hero .kv span{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:#9b93b5}
+.live-hero .kv strong{font-size:1rem;color:#fff}
+.live-hero .kv strong small{color:#b6aecf;font-weight:500}
+.ops-big{font-size:52px;font-weight:800;letter-spacing:-.02em;line-height:1.1;margin:.4rem 0 .5rem;color:#fff}
+.ops-big.ops-green{color:#4be3a0;text-shadow:0 0 22px rgba(75,227,160,.35)}
+.ops-progress{height:16px;border-radius:99px;background:rgba(148,121,213,.18);overflow:hidden}
+.ops-progress .progress-bar{border-radius:99px;background:linear-gradient(90deg,#7f5fd0,#bfa8ef);transition:width .6s}
+.ops-progress.ops-green .progress-bar{background:linear-gradient(90deg,#2fbf7f,#4be3a0)}
+.ops-progress .progress-bar.ops-pulse{animation:opsPulse 1.4s ease-in-out infinite}
+@keyframes opsPulse{0%,100%{opacity:.55}50%{opacity:1}}
+.live-hero .progress-caption{display:flex;justify-content:space-between;font-size:.85rem;color:#b6aecf;margin-top:.35rem}
+.live-hero .live-details{border-top:1px solid rgba(148,121,213,.25);padding-top:.4rem}
+.live-hero .live-details summary{color:#9b93b5}
