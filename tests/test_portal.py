@@ -72,13 +72,13 @@ class PortalTests(unittest.TestCase):
         try:
             with urllib.request.urlopen(base+'/') as r: self.assertIn(b'FineTune Workspace',r.read())
             with urllib.request.urlopen(base+'/assets/portal.css') as r: self.assertEqual(r.status,200)
-            with urllib.request.urlopen(base+'/status') as r: self.assertIn('jobs',json.load(r))
+            # Session-auth model: data routes are closed without a token, proxy header or cookie.
+            with self.assertRaises(urllib.error.HTTPError) as exc: urllib.request.urlopen(base+'/status')
+            self.assertEqual(exc.exception.code,401)
             req=urllib.request.Request(base+'/settings',data=b'[]',headers={'Content-Type':'application/json'})
             with self.assertRaises(urllib.error.HTTPError) as exc: urllib.request.urlopen(req)
-            self.assertEqual(exc.exception.code,422)
+            self.assertEqual(exc.exception.code,401)
             with patch.dict(os.environ,{'FT_API_TOKEN':'secret'}):
-                with self.assertRaises(urllib.error.HTTPError) as exc: urllib.request.urlopen(base+'/status')
-                self.assertEqual(exc.exception.code,401)
                 req=urllib.request.Request(base+'/status',headers={'Authorization':'Bearer secret'})
                 with urllib.request.urlopen(req) as r: self.assertEqual(r.status,200)
                 req=urllib.request.Request(base+'/status',headers={'X-FT-Authenticated':'1'})
@@ -86,6 +86,14 @@ class PortalTests(unittest.TestCase):
                 req=urllib.request.Request(base+'/settings',data=b'{}',headers={'Content-Type':'application/json','X-FT-Authenticated':'1','Origin':'https://foreign.invalid'})
                 with self.assertRaises(urllib.error.HTTPError) as exc: urllib.request.urlopen(req)
                 self.assertEqual(exc.exception.code,403)
+            # Quick register + login issues a session cookie that unlocks data routes.
+            opener=urllib.request.build_opener(urllib.request.HTTPCookieProcessor())
+            req=urllib.request.Request(base+'/auth/register',data=json.dumps({'login':'tester','password':'hunter2'}).encode(),headers={'Content-Type':'application/json'})
+            with opener.open(req) as r: self.assertEqual(json.load(r)['login'],'tester')
+            with opener.open(base+'/status') as r: self.assertIn('jobs',json.load(r))
+            bad=urllib.request.Request(base+'/auth/login',data=json.dumps({'login':'tester','password':'nope'}).encode(),headers={'Content-Type':'application/json'})
+            with self.assertRaises(urllib.error.HTTPError) as exc: urllib.request.urlopen(bad)
+            self.assertEqual(exc.exception.code,422)
         finally: srv.shutdown();srv.server_close()
     def test_gpu_failure_releases_only_created_instance(self):
         self.dataset(); j=app.queue_job({'dataset':'test-v1','executor':'vast'})
@@ -135,7 +143,8 @@ class PortalTests(unittest.TestCase):
         (d/'result/adapter').mkdir(); (d/'result/adapter/adapter_model.safetensors').write_bytes(b'fixture')
         srv=app.ThreadingHTTPServer(('127.0.0.1',0),app.Handler); threading.Thread(target=srv.serve_forever,daemon=True).start()
         try:
-            with urllib.request.urlopen(f'http://127.0.0.1:{srv.server_port}/artifacts/'+j['id']) as r:
+            req=urllib.request.Request(f'http://127.0.0.1:{srv.server_port}/artifacts/'+j['id'],headers={'X-FT-Authenticated':'1'})
+            with urllib.request.urlopen(req) as r:
                 self.assertEqual(r.headers['Content-Type'],'application/zip')
                 with zipfile.ZipFile(io.BytesIO(r.read())) as archive:
                     self.assertEqual(archive.read('adapter/adapter_model.safetensors'),b'fixture')

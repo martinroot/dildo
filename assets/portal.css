@@ -34,3 +34,13 @@ body{font-size:13px;letter-spacing:-.012em}.vf-brand{height:88px;padding:0 21px;
 .promo-tech h3{font-size:1rem;margin-bottom:.5rem;color:#bfa8ef}
 .promo-tech p{font-size:.9rem;color:#b6aecf;line-height:1.6;margin:0}
 .promo-tech code{color:#cfc8e6;background:rgba(148,121,213,.15);padding:0 .3em;border-radius:4px}
+
+/* Login / registration overlay */
+#auth-overlay{position:fixed;inset:0;background:rgba(10,8,18,.86);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:5000}
+.auth-card{width:min(360px,92vw);background:#1c1830;border:1px solid rgba(148,121,213,.45);border-radius:16px;padding:2rem;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.auth-brand{font-size:1.6rem;font-weight:800;background:linear-gradient(120deg,#fff,#bfa8ef);-webkit-background-clip:text;background-clip:text;color:transparent;text-align:center}
+.auth-tabs{display:flex;gap:.4rem;margin:1rem 0}
+.auth-tab{flex:1;background:transparent;border:1px solid rgba(148,121,213,.4);color:#9b93b5;border-radius:8px;padding:.45rem;font-weight:600;cursor:pointer}
+.auth-tab.active{background:#7f5fd0;border-color:#7f5fd0;color:#fff}
+#auth-overlay .form-control{margin-top:.7rem;background:#141020;border-color:rgba(148,121,213,.35);color:#e6e1f5}
+.auth-error{color:#ff8da1;font-size:.85rem;margin:.7rem 0 0}

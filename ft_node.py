@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """DILDO / FineTune control plane. Standard library HTTP API; private by default."""
+import base64
 import hashlib
 import hmac
 import json
@@ -257,6 +258,58 @@ def provider_save(p):
         write_json(FT_DIR/'providers.json',{'items':rows})
     return {'items':rows}
 
+def _secret():
+    p = FT_DIR / 'session_secret'
+    if not p.is_file():
+        p.write_text(os.urandom(32).hex())
+        p.chmod(0o600)
+    return p.read_text().strip()
+
+def _pw_hash(pw, salt):
+    return hashlib.pbkdf2_hmac('sha256', pw.encode(), bytes.fromhex(salt), 200_000).hex()
+
+def users_file(): return FT_DIR / 'users.json'
+
+def user_register(p):
+    login = str(p.get('login') or '').strip().lower()
+    pw = str(p.get('password') or '')
+    if not re.fullmatch(r'[a-z0-9_.-]{3,32}', login): raise ValueError('Login: 3–32 chars, a-z 0-9 _ . -')
+    if len(pw) < 6: raise ValueError('Password must be at least 6 characters')
+    rows = read_json(users_file()).get('users', [])
+    if any(u['login'] == login for u in rows): raise ValueError('This login is already taken')
+    salt = os.urandom(16).hex()
+    rows.append({'login': login, 'salt': salt, 'hash': _pw_hash(pw, salt), 'created_at': utc()})
+    write_json(users_file(), {'users': rows})
+    return user_login(p)
+
+def user_login(p):
+    login = str(p.get('login') or '').strip().lower()
+    pw = str(p.get('password') or '')
+    rows = read_json(users_file()).get('users', [])
+    user = next((u for u in rows if u['login'] == login), None)
+    if not user or not hmac.compare_digest(user['hash'], _pw_hash(pw, user['salt'])):
+        raise ValueError('Wrong login or password')
+    msg = login + ':' + utc()
+    sig = hmac.new(bytes.fromhex(_secret()), msg.encode(), hashlib.sha256).hexdigest()
+    token = base64.urlsafe_b64encode(msg.encode()).decode().rstrip('=') + '.' + sig
+    return {'ok': True, 'login': login, 'token': token, 'max_age': 60 * 60 * 24 * 30}
+
+def session_login(header):
+    """Return the login for a valid 'login:stamp.sig' token, else None."""
+    try:
+        payload, sig = header.rsplit('.', 1)
+        msg = base64.urlsafe_b64decode(payload + '=' * (-len(payload) % 4)).decode()
+        good = hmac.new(bytes.fromhex(_secret()), msg.encode(), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(sig, good): return None
+        login, stamp = msg.split(':', 1)
+        # Tokens older than 30 days expire.
+        if (datetime.now(timezone.utc) - datetime.fromisoformat(stamp)).total_seconds() > 60 * 60 * 24 * 30: return None
+        return login
+    except (ValueError, TypeError, IndexError): return None
+
+def user_logout():
+    return {'ok': True}
+
 def job_delete(p):
     """Delete a finished run together with its adapter artifact. The active model is protected."""
     jid = str(p.get('job') or '')
@@ -323,23 +376,32 @@ def predict_test(p):
 
 
 class Handler(BaseHTTPRequestHandler):
-    def reply(self,code,payload,ctype='application/json; charset=utf-8',attachment=None):
+    def reply(self,code,payload,ctype='application/json; charset=utf-8',attachment=None,cookie=None):
         body=json.dumps(payload,ensure_ascii=False,allow_nan=False).encode() if isinstance(payload,(dict,list)) else payload
         self.send_response(code); self.send_header('Content-Type',ctype); self.send_header('Content-Length',str(len(body)))
         self.send_header('Cache-Control','no-store'); self.send_header('X-Content-Type-Options','nosniff')
         self.send_header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'")
         if attachment: self.send_header('Content-Disposition','attachment; filename="'+attachment+'"')
+        if cookie: self.send_header('Set-Cookie',cookie)
         self.end_headers(); self.wfile.write(body)
+    def authed(self):
+        """Valid bearer token, authenticated proxy header, or a valid session cookie."""
+        token=os.getenv('FT_API_TOKEN')
+        if token and hmac.compare_digest(self.headers.get('Authorization',''),'Bearer '+token): return True
+        if token and self.headers.get('Authorization','').startswith('Bearer '): return False
+        if self.headers.get('X-FT-Authenticated')=='1': return True
+        cookie=self.headers.get('Cookie','')
+        for part in cookie.split(';'):
+            k,_,v=part.strip().partition('=')
+            if k=='ft_session' and session_login(v): return True
+        return False
+    def session_cookie(self,payload):
+        maxage=int(payload.get('max_age') or 60*60*24*30)
+        return f"ft_session={payload['token']}; Max-Age={maxage}; Path=/; HttpOnly; SameSite=Lax"
     def guard(self):
         allowed={'127.0.0.1','localhost',*filter(None,os.getenv('FT_ALLOWED_HOSTS','').split(','))}
         if (self.headers.get('Host') or '').split(':')[0] not in allowed:
             self.reply(403,{'error':'Host not allowed; configure reverse proxy Host 127.0.0.1'}); return False
-        token=os.getenv('FT_API_TOKEN')
-        # Publicly exposed installations require a bearer token OR an authenticated reverse proxy.
-        if token and self.headers.get('Authorization','').startswith('Bearer ') and not hmac.compare_digest(self.headers['Authorization'],'Bearer '+token):
-            self.reply(401,{'error':'Invalid bearer token'}); return False
-        if token and not hmac.compare_digest(self.headers.get('Authorization',''),'Bearer '+token) and self.headers.get('X-FT-Authenticated')!='1':
-            self.reply(401,{'error':'Authentication required'}); return False
         origin=self.headers.get('Origin')
         if self.command=='POST' and origin and urlsplit(origin).netloc != (self.headers.get('X-Forwarded-Host') or self.headers.get('Host')):
             self.reply(403,{'error':'Cross-origin request rejected'}); return False
@@ -366,6 +428,7 @@ class Handler(BaseHTTPRequestHandler):
         if not self.guard(): return
         path=urlsplit(self.path).path
         try:
+            # The static shell is public: it renders the login screen when the session is missing.
             if path in ('/','/ui','/ui/'):
                 return self.reply(200,(ROOT/'assets/index.html').read_bytes(),'text/html; charset=utf-8')
             if path.startswith('/assets/'):
@@ -373,6 +436,7 @@ class Handler(BaseHTTPRequestHandler):
                 if '/' in name or name.startswith('.'): return self.reply(404,{'error':'Not found'})
                 f=ROOT/'assets'/name
                 if f.is_file(): return self.reply(200,f.read_bytes(),mimetypes.guess_type(str(f))[0] or 'application/octet-stream')
+            if not self.authed(): return self.reply(401,{'error':'Authentication required','auth':True})
             if path=='/status': return self.reply(200,status_view())
             if path=='/jobs': return self.reply(200,{'jobs':job_list()})
             if path=='/gpu/state': return self.reply(200,gpu_state())
@@ -387,6 +451,7 @@ class Handler(BaseHTTPRequestHandler):
                 p=FT_DIR/'operations'/(oid+'.log'); text=p.read_text(errors='replace')[-20000:] if p.is_file() else ''
                 return self.reply(200,{**read_json(p.with_suffix('.json')),'log':text})
             if path.startswith('/artifacts/'):
+                if not self.authed(): return self.reply(401,{'error':'Authentication required','auth':True})
                 return self.artifact_download(path.split('/')[-1])
             if path.startswith('/export/'):
                 d=job_dir(path.split('/')[-1]); report=read_json(d/'result/report.json')
@@ -396,6 +461,8 @@ class Handler(BaseHTTPRequestHandler):
         except (ValueError,OSError) as exc: self.reply(422,{'error':str(exc)})
     def do_POST(self):
         if not self.guard(): return
+        public_auth={'/auth/register','/auth/login'}
+        if urlsplit(self.path).path not in public_auth and not self.authed(): return self.reply(401,{'error':'Authentication required','auth':True})
         try:
             if self.headers.get_content_type()!='application/json': return self.reply(415,{'error':'application/json required'})
             length=int(self.headers.get('Content-Length','0'))
@@ -404,13 +471,20 @@ class Handler(BaseHTTPRequestHandler):
             if not isinstance(p,dict): raise ValueError('Expected JSON object')
             routes={'/datasets/import':import_dataset,'/datasets/validate':validate_dataset,'/datasets/demo':demo_dataset,
                     '/gpu/demo-dataset':demo_dataset,'/jobs/queue':queue_job,'/jobs/cancel':cancel,'/jobs/activate':activate,
-                    '/settings':save_settings,'/providers/save':provider_save,'/predict':predict_test,'/jobs/delete':job_delete}
+                    '/settings':save_settings,'/providers/save':provider_save,'/predict':predict_test,'/jobs/delete':job_delete,
+                    '/auth/register':user_register,'/auth/login':user_login,'/auth/logout':user_logout}
+            public={'/auth/register','/auth/login'}
+            if self.path not in public and not self.authed(): return self.reply(401,{'error':'Authentication required','auth':True})
+
             if self.path.startswith('/gpu/') and self.path not in routes: result=gpu_run(self.path.split('/')[-1],p)
             elif self.path in routes:
                 if self.path=='/jobs/queue' and p.get('executor')=='vast': raise ValueError('Use POST /gpu/cycle for remote execution')
                 result=routes[self.path](p)
             else: return self.reply(404,{'error':'Route not found'})
-            self.reply(200,result)
+            cookie=None
+            if self.path in ('/auth/login','/auth/register') and result.get('token'): cookie=self.session_cookie(result)
+            if self.path=='/auth/logout': cookie='ft_session=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax'
+            self.reply(200,result,cookie=cookie)
         except (ValueError,TypeError,KeyError) as exc: self.reply(422,{'error':str(exc)})
         except OSError as exc: self.reply(500,{'error':str(exc)})
     def log_message(self,fmt,*args): sys.stderr.write('%s %s\n'%(self.log_date_time_string(),fmt%args))
