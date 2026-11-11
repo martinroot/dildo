@@ -68,3 +68,49 @@ body{font-size:13px;letter-spacing:-.012em}.vf-brand{height:88px;padding:0 21px;
 .live-hero .progress-caption{display:flex;justify-content:space-between;font-size:.85rem;color:#b6aecf;margin-top:.35rem}
 .live-hero .live-details{border-top:1px solid rgba(148,121,213,.25);padding-top:.4rem}
 .live-hero .live-details summary{color:#9b93b5}
+
+/* ---------- Global spacing & polish pass ---------- */
+.vf-content{padding:34px 40px 46px}
+.page-heading{margin:6px 0 30px}
+.page-heading h1{margin:9px 0 8px}
+.panel{border-radius:14px;margin-bottom:26px;box-shadow:0 1px 2px rgba(20,16,40,.04),0 8px 26px rgba(30,24,60,.05)}
+.panel-head{padding:16px 24px}
+.panel-body{padding:24px}
+.panel .panel-body>.panel-note:first-child{margin-bottom:14px}
+.stats-grid{gap:18px;margin-bottom:28px}
+.stat-card{border-radius:12px;padding:20px 22px}
+.workbench-grid,.split-2,.metric-compare{gap:26px}
+.library-grid{gap:22px}
+.table th{padding:13px 24px}
+.table td{padding:16px 24px}
+.table tbody tr{transition:background .15s}
+.table tbody tr:hover{background:#faf9fe}
+.toolbar{margin-bottom:22px;gap:12px}
+.form-grid{gap:20px 24px}
+.btn{border-radius:8px;padding:10px 16px}
+.btn-sm{border-radius:7px}
+.d-flex.gap-2{gap:.65rem!important}
+.mt-2{margin-top:.9rem!important}
+.mt-3{margin-top:1.2rem!important}
+.log-window{border-radius:10px;padding:16px 18px}
+.help-box{border-radius:10px}
+.model-card .panel-body{padding:24px}
+.model-card .model-foot{padding:14px 24px;border-radius:0 0 14px 14px}
+.gpu-device{margin-bottom:22px}
+.criteria-row{padding:15px 0}
+.warning-line{margin-top:12px;padding:10px 14px;background:#fdf8ec;border-radius:8px;display:inline-block}
+.error-banner{border-radius:10px}
+/* LIVE hero breathing room */
+.live-hero .panel-body{padding:1.4rem 1.5rem}
+.gpu-bright{padding:1rem 1.2rem;margin-bottom:1rem}
+.live-hero .d-flex.mt-2{margin-top:1.2rem!important}
+.live-details{margin-top:1.1rem}
+.live-details>summary{padding:.55rem .3rem}
+.live-details .chart-wrap{margin-top:1rem}
+/* History & tables inside panels */
+.panel>.table-responsive:first-child{padding:0}
+/* Test panel */
+#test-input{margin-top:.9rem;border-radius:8px}
+#test-output{margin-top:1.2rem}
+/* Login overlay */
+.auth-card{border-radius:18px;padding:2.2rem}
