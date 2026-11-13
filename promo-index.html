@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en" data-bs-theme="dark"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DILDO MLL — Finetune for everyone</title>
+<meta name="description" content="Qwen3.5 + vast.ai API key = a trained adapter in ~10 minutes, from $0.03.">
+<style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:#141020;color:#e6e1f5;font-family:"Segoe UI",system-ui,-apple-system,sans-serif}
+a{color:#bfa8ef;text-decoration:none}
+.wrap{max-width:1200px;margin:0 auto;padding:0 1.2rem}
+.nav{display:flex;align-items:center;justify-content:space-between;padding:1.1rem 0;gap:1rem}
+.nav .logo{font-weight:800;letter-spacing:.04em}
+.nav-right{display:flex;gap:.8rem;align-items:center}
+.btn-gh{display:inline-flex;align-items:center;gap:.6rem;background:#000;color:#fff;border:1px solid #333;border-radius:12px;padding:.75rem 1.4rem;font-weight:700;font-size:1rem}
+.btn-gh:hover{background:#111;border-color:#7f5fd0}
+.btn-gh svg{width:26px;height:26px;fill:#fff}
+a.enter{border:1px solid #7f5fd0;border-radius:12px;padding:.75rem 1.4rem;color:#e6e1f5;font-weight:600}
+a.enter:hover{background:#7f5fd0}
+.promo-hero{text-align:center;padding:min(19vh,180px) 1rem 3rem}
+.promo-brand{font-size:min(15vw,9.5rem);font-weight:800;letter-spacing:-.03em;line-height:1;background:linear-gradient(120deg,#fff 10%,#bfa8ef 55%,#7f5fd0 90%);-webkit-background-clip:text;background-clip:text;color:transparent;text-transform:uppercase}
+.promo-slogan{font-size:1.6rem;color:#cfc8e6;margin:1.2rem 0 .6rem}
+.promo-formula{font-size:1.05rem;color:#9b93b5}
+.promo-formula strong{color:#bfa8ef}
+.cta{display:flex;gap:.8rem;justify-content:center;flex-wrap:wrap;margin-top:2rem}
+.btn{border-radius:10px;padding:.8rem 1.5rem;font-weight:600;display:inline-block}
+.btn-primary{background:#7f5fd0;color:#fff}
+.btn-primary:hover{background:#6a4ec2}
+.btn-ghost{border:1px solid rgba(148,121,213,.5);color:#e6e1f5}
+.panel{background:rgba(255,255,255,.03);border:1px solid rgba(148,121,213,.22);border-radius:16px;padding:1.6rem;margin-bottom:1.4rem}
+.panel h2{margin:0 0 1.1rem;font-size:1.15rem}
+.steps-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.9rem}
+.step-card{background:rgba(148,121,213,.07);border:1px solid rgba(148,121,213,.3);border-radius:12px;padding:1rem .9rem}
+.step-num{width:30px;height:30px;border-radius:50%;background:#7f5fd0;color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;margin-bottom:.6rem}
+.step-card strong{display:block;margin-bottom:.35rem;font-size:.95rem}
+.step-card p{margin:0;font-size:.8rem;color:#9b93b5;line-height:1.45}
+.stats-band{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:1rem;text-align:center;margin-bottom:1.4rem}
+.stat-big{background:linear-gradient(135deg,rgba(148,121,213,.16),rgba(148,121,213,.05));border:1px solid rgba(148,121,213,.35);border-radius:14px;padding:1.2rem .6rem}
+.stat-big b{display:block;font-size:2rem;background:linear-gradient(120deg,#fff,#bfa8ef);-webkit-background-clip:text;background-clip:text;color:transparent}
+.stat-big span{font-size:.8rem;color:#9b93b5}
+.pipe{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;justify-content:center;margin:0 0 1.4rem;font-family:ui-monospace,monospace;font-size:.85rem}
+.pipe i{background:rgba(148,121,213,.12);border:1px solid rgba(148,121,213,.35);border-radius:8px;padding:.4rem .8rem;font-style:normal;color:#cfc8e6}
+.pipe em{color:#7f5fd0;font-style:normal;font-weight:700}
+.tech-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem}
+.tech-card{border-left:3px solid #7f5fd0;padding:.2rem 0 .2rem 1rem}
+.tech-card h3{font-size:.95rem;margin:0 0 .4rem}
+.tech-card p{font-size:.85rem;color:#b6aecf;line-height:1.55;margin:0}
+footer{text-align:center;color:#6f6787;font-size:.8rem;padding:2rem 0 3rem}
+</style></head>
+<body><div class="wrap">
+<nav class="nav"><span class="logo">DILDO MLL</span><div class="nav-right"><a class="enter" href="/portal/">Open portal →</a><a class="btn-gh" href="https://github.com/martinroot/dildo" target="_blank" rel="noopener"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>GitHub</a></div></nav>
+<section class="promo-hero">
+<div class="promo-brand">DILDO MLL</div>
+<p class="promo-slogan">Finetune for everyone</p>
+<p class="promo-formula">Qwen3.5 + vast.ai API key = <strong>a trained adapter in ~10 minutes, from $0.03</strong></p>
+<div class="cta"><a class="btn btn-primary" href="/portal/">Start training</a><a class="btn btn-ghost" href="/portal/#advanced">Configuration</a></div>
+</section>
+<div class="stats-band">
+<div class="stat-big"><b>~10 min</b><span>smoke run end-to-end</span></div>
+<div class="stat-big"><b>$0.03–0.12</b><span>cost per run · RTX 3090</span></div>
+<div class="stat-big"><b>30 MB</b><span>portable LoRA adapter</span></div>
+<div class="stat-big"><b>3090/4090</b><span>on-demand vast.ai GPUs</span></div>
+<div class="stat-big"><b>0.8 B</b><span>Qwen3.5 base parameters</span></div>
+</div>
+<section class="panel"><h2>Six steps from spreadsheet to model</h2><div class="steps-row">
+<div class="step-card"><div class="step-num">1</div><strong>Register</strong><p>Quick login &amp; password — your workspace is private.</p></div>
+<div class="step-card"><div class="step-num">2</div><strong>Enter vast.ai API key</strong><p>Paste it once; training spins up on-demand RTX 3090 / 4090.</p></div>
+<div class="step-card"><div class="step-num">3</div><strong>Upload Excel / CSV / TXT</strong><p>Converted to validated JSONL dataset versions.</p></div>
+<div class="step-card"><div class="step-num">4</div><strong>Define acceptance criteria</strong><p>Accuracy, JSON validity, no regression — enforced before release.</p></div>
+<div class="step-card"><div class="step-num">5</div><strong>Train</strong><p>RTX 3090/4090 rented per run; smoke in ~10 min, standard (160 steps) in ~30 min.</p></div>
+<div class="step-card"><div class="step-num">6</div><strong>Download</strong><p>Adapter ZIP: weights, config, tokenizer, evaluation report.</p></div>
+</div></section>
+<div class="pipe">
+<i>Your data</i><em>→</em><i>schema + leak checks</i><em>→</em><i>Vast GPU · LoRA r8</i><em>→</em><i>quality gates</i><em>→</em><i>adapter ZIP</i>
+</div>
+<section class="panel"><h2>Why it works</h2><div class="tech-cards">
+<div class="tech-card"><h3>LoRA, not full retraining</h3><p>Instead of rewriting 0.8 B parameters, we train a ~30 MB low-rank residual on top of Qwen3.5. Measured on a $0.17/h RTX 3090: a smoke run (12 steps) finishes end-to-end in ~10 min for ~$0.03; a standard run (160 steps) in ~30 min for $0.08–0.12.</p></div>
+<div class="tech-card"><h3>Zero idle billing</h3><p>The control plane rents a GPU only for the run: uploads data and trainer over SSH, streams live progress back, collects artifacts and releases the instance. You never pay for a parked machine.</p></div>
+<div class="tech-card"><h3>Nothing ships unverified</h3><p>Every adapter is evaluated on held-out examples against the base model. If accuracy, JSON validity or regression gates fail, activation is blocked — you see exactly which check failed.</p></div>
+</div></section>
+<footer>DILDO MLL · fine-tuning workspace · <a href="https://github.com/martinroot/dildo">source</a> · <a href="/portal/">portal</a></footer>
+</div></body></html>

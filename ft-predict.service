@@ -1,0 +1,28 @@
+[Unit]
+Description=FT-Node resident prediction server (hot model)
+After=network.target ft-node.service
+
+[Service]
+Type=simple
+User=ft-node
+Group=ft-node
+WorkingDirectory=/opt/ft-node
+Environment=FT_DIR=/var/lib/ft-node
+EnvironmentFile=-/etc/ft-node/ft-node.env
+Environment=RTB_FINETUNE_MODEL=/opt/ft-node/models/base
+Environment=HF_HUB_OFFLINE=1
+ExecStart=/opt/ft-node/.venv/bin/python /opt/ft-node/predict_server.py
+Restart=on-failure
+RestartSec=5
+UMask=0077
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+MemoryHigh=2600M
+MemoryMax=3200M
+
+[Install]
+WantedBy=multi-user.target
