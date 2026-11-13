@@ -138,7 +138,7 @@ class Vast:
         r=subprocess.run(argv,text=True,capture_output=True,timeout=max(1,min(timeout or 300,limit)))
         if r.returncode: raise RuntimeError('File transfer failed: '+r.stderr[-600:])
 
-    def upload_chunked(self,inst,source,dest,timeout=1500,chunk_mb=512):
+    def upload_chunked(self,inst,source,dest,timeout=1500,chunk_mb=256,per=600):
         """Upload a large file in chunks so each scp stays under the timeout.
         Reassembles on the remote side and verifies the byte size."""
         opts,host,port=self.ssh_args(inst)
@@ -151,7 +151,7 @@ class Vast:
             parts=sorted(part_dir.iterdir())
             remote_dir='/tmp/ft-chunks-'+uuid.uuid4().hex[:8]
             self.ssh(inst,'mkdir -p '+remote_dir)
-            per=min(timeout,max(120,timeout//max(1,len(parts))))
+            per=min(per,timeout)
             for i,p in enumerate(parts):
                 limit=self.deadline-time.monotonic() if self.deadline else 0
                 t=max(1,min(per,limit)) if limit>0 else per
@@ -217,7 +217,7 @@ class Vast:
                     self.copy(inst,tgz,'/tmp/ft-cache.tgz',timeout=1500)
                 except Exception as up_exc:
                     print('direct upload failed (%s) -> chunked fallback'%str(up_exc)[:120],flush=True)
-                    self.upload_chunked(inst,tgz,'/tmp/ft-cache.tgz',timeout=1500)
+                    self.upload_chunked(inst,tgz,'/tmp/ft-cache.tgz',timeout=1500,chunk_mb=256,per=600)
                 self.ssh(inst,'mkdir -p /root/.cache/huggingface/hub && tar xzf /tmp/ft-cache.tgz -C /root/.cache/huggingface/hub && rm -f /tmp/ft-cache.tgz',timeout=1200)
                 (Path(d)/'model-cache.tgz').unlink(missing_ok=True)
                 offline=' HF_HUB_OFFLINE=1'
