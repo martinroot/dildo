@@ -1,0 +1,27 @@
+[Unit]
+Description=FT-Node FineTune control API (loopback)
+After=network.target
+
+[Service]
+Type=simple
+User=ft-node
+Group=ft-node
+WorkingDirectory=/opt/ft-node
+Environment=FT_DIR=/var/lib/ft-node
+EnvironmentFile=-/etc/ft-node/ft-node.env
+Environment=FT_PORT=8094
+ExecStart=/opt/ft-node/.venv/bin/python /opt/ft-node/ft_node.py
+Restart=on-failure
+RestartSec=3
+UMask=0077
+StateDirectory=ft-node
+StateDirectoryMode=0700
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target
