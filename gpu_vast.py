@@ -261,6 +261,13 @@ class Vast:
             try:
                 if created:
                     inst=self.tracked()
+                    if inst:
+                        # Always grab the remote logs before the instance dies.
+                        for name in ('setup.log','worker.log'):
+                            try:
+                                content=self.ssh(inst,'test ! -f '+remote+'/'+name+' || tail -c 128000 '+remote+'/'+name)
+                                (d/name).write_text(content or '')
+                            except Exception: pass
                     if inst and not (d/'result'/'adapter'/'adapter_model.safetensors').exists():
                         phase('salvage'); self.collect_dir(inst,remote+'/jobs/'+jid+'/result',str(d))
                         print('Salvaged result after error',flush=True)
