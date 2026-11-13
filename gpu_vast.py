@@ -17,6 +17,7 @@ import urllib.parse
 import urllib.error
 from ft_node import FT_DIR, ROOT, read_json, write_json, settings, utc, job_dir, init
 import uuid
+import shutil
 
 API='https://console.vast.ai/api/v0'
 KEY_PATH=Path(os.getenv('FT_VAST_KEY','/etc/ft-node/vast_api_key'))
@@ -137,6 +138,34 @@ class Vast:
         r=subprocess.run(argv,text=True,capture_output=True,timeout=max(1,min(timeout or 300,limit)))
         if r.returncode: raise RuntimeError('File transfer failed: '+r.stderr[-600:])
 
+    def upload_chunked(self,inst,source,dest,timeout=1500,chunk_mb=512):
+        """Upload a large file in chunks so each scp stays under the timeout.
+        Reassembles on the remote side and verifies the byte size."""
+        opts,host,port=self.ssh_args(inst)
+        src=Path(source)
+        total=src.stat().st_size
+        part_dir=Path('/tmp/ft-chunks-'+uuid.uuid4().hex[:8])
+        part_dir.mkdir()
+        try:
+            subprocess.run(['split','-b',f'{chunk_mb}m','-d','-a','3',str(src),str(part_dir/'p')],check=True,timeout=600)
+            parts=sorted(part_dir.iterdir())
+            remote_dir='/tmp/ft-chunks-'+uuid.uuid4().hex[:8]
+            self.ssh(inst,'mkdir -p '+remote_dir)
+            per=min(timeout,max(120,timeout//max(1,len(parts))))
+            for i,p in enumerate(parts):
+                limit=self.deadline-time.monotonic() if self.deadline else 0
+                t=max(1,min(per,limit)) if limit>0 else per
+                argv=['scp',*opts,'-P',port,str(p),'root@'+host+':'+remote_dir+'/'+p.name]
+                r=subprocess.run(argv,text=True,capture_output=True,timeout=t)
+                if r.returncode: raise RuntimeError('chunk upload failed (%d/%d): %s'%(i+1,len(parts),r.stderr[-300:]))
+                print('chunk %d/%d uploaded'%(i+1,len(parts)),flush=True)
+            self.ssh(inst,'cat '+remote_dir+'/p* > '+dest+' && rm -rf '+remote_dir)
+            out=self.ssh(inst,'stat -c %s '+dest)
+            got=int(out.strip().splitlines()[-1])
+            if got!=total: raise RuntimeError('size mismatch remote=%d local=%d'%(got,total))
+        finally:
+            shutil.rmtree(part_dir,ignore_errors=True)
+
     def collect_dir(self,inst,source,dest,attempts=3):
         """Download a remote directory as a single tarball (resilient to stalls), with retries."""
         import tarfile,shutil
@@ -184,7 +213,11 @@ class Vast:
                 tgz=str(Path(d)/'model-cache.tgz')
                 import tarfile as _tf
                 with _tf.open(tgz,'w:gz',dereference=True) as a: a.add(str(src),arcname=src.name)
-                self.copy(inst,tgz,'/tmp/ft-cache.tgz',timeout=1500)
+                try:
+                    self.copy(inst,tgz,'/tmp/ft-cache.tgz',timeout=1500)
+                except Exception as up_exc:
+                    print('direct upload failed (%s) -> chunked fallback'%str(up_exc)[:120],flush=True)
+                    self.upload_chunked(inst,tgz,'/tmp/ft-cache.tgz',timeout=1500)
                 self.ssh(inst,'mkdir -p /root/.cache/huggingface/hub && tar xzf /tmp/ft-cache.tgz -C /root/.cache/huggingface/hub && rm -f /tmp/ft-cache.tgz',timeout=1200)
                 (Path(d)/'model-cache.tgz').unlink(missing_ok=True)
                 offline=' HF_HUB_OFFLINE=1'
