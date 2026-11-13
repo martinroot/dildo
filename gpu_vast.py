@@ -214,13 +214,15 @@ class Vast:
                 import tarfile as _tf
                 with _tf.open(tgz,'w:gz',dereference=True) as a: a.add(str(src),arcname=src.name)
                 try:
-                    self.copy(inst,tgz,'/tmp/ft-cache.tgz',timeout=1500)
+                    self.copy(inst,tgz,'/tmp/ft-cache.tgz',timeout=600)
+                    self.ssh(inst,'mkdir -p /root/.cache/huggingface/hub && tar xzf /tmp/ft-cache.tgz -C /root/.cache/huggingface/hub && rm -f /tmp/ft-cache.tgz',timeout=1200)
+                    (Path(d)/'model-cache.tgz').unlink(missing_ok=True)
+                    offline=' HF_HUB_OFFLINE=1'
                 except Exception as up_exc:
-                    print('direct upload failed (%s) -> chunked fallback'%str(up_exc)[:120],flush=True)
-                    self.upload_chunked(inst,tgz,'/tmp/ft-cache.tgz',timeout=1500,chunk_mb=256,per=600)
-                self.ssh(inst,'mkdir -p /root/.cache/huggingface/hub && tar xzf /tmp/ft-cache.tgz -C /root/.cache/huggingface/hub && rm -f /tmp/ft-cache.tgz',timeout=1200)
-                (Path(d)/'model-cache.tgz').unlink(missing_ok=True)
-                offline=' HF_HUB_OFFLINE=1'
+                    # Upload path to Vast degraded -> let the worker pull the model
+                    # from HuggingFace on the instance instead (Vast->HF is fast).
+                    print('cache upload failed (%s) -> worker downloads model from HF'%str(up_exc)[:120],flush=True)
+                    offline=''
             phase('installing')
             # SSH launches a remote process; controller polls without tying up an HTTP request.
             command=f'cd {remote} && python3 -m pip install -r requirements.txt &&{offline} OMP_NUM_THREADS=8 FT_DATA_SUBDIR=data python3 worker.py --root {remote} --model {shlex.quote(model)} --threads 8 --once --executor vast --timeout {int(self.cfg["max_minutes"]*60)}'
