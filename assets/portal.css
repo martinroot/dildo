@@ -127,3 +127,6 @@ body{font-size:13px;letter-spacing:-.012em}.vf-brand{height:88px;padding:0 21px;
 .ops-progress{height:18px;border-radius:99px}
 .live-hero .progress-caption{font-size:.88rem;margin-top:.55rem;padding:0 .1rem}
 .ops-timer{font-size:1.15rem!important;letter-spacing:.02em;color:#4be3a0!important;font-variant-numeric:tabular-nums}
+
+.btn-omvp{display:inline-flex;align-items:center;gap:.35rem;background:linear-gradient(120deg,#7f5fd0,#bfa8ef);color:#fff;border-radius:10px;padding:.42rem .9rem;font-weight:600;font-size:.85rem;text-decoration:none}
+.btn-omvp:hover{filter:brightness(1.12);color:#fff}
