@@ -233,9 +233,34 @@ class DeployOrderTests(unittest.TestCase):
         transport = RecordingTransport()
         module.deploy(cfg, Path(tempfile.mkdtemp()) / 'state', module.MockAPI(), transport)
 
-        launch = next(c for c in transport.commands if 'python3 server.py' in c)
+        launch = next(c for c in transport.commands if 'bootstrap.sh' in c)
         self.assertIn('setsid', launch)
         self.assertIn('</dev/null', launch)
+
+    def test_deploy_launches_bootstrap_not_server(self):
+        spec = importlib.util.spec_from_file_location(
+            'vast_deploy_bootstrap', ROOT / 'scripts' / 'vast_deploy.py')
+        assert spec is not None and spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        class RecordingTransport(module.MockTransport):
+            def __init__(self):
+                self.commands = []
+
+            def ssh(self, inst, command, timeout=45):
+                self.commands.append(command)
+                return super().ssh(inst, command, timeout)
+
+        cfg = json.loads((ROOT / 'config.example.json').read_text())
+        cfg['_dry_run'] = True
+        cfg['release_after_smoke'] = True
+        transport = RecordingTransport()
+        module.deploy(cfg, Path(tempfile.mkdtemp()) / 'state', module.MockAPI(), transport)
+
+        launch = next(c for c in transport.commands if 'setsid' in c)
+        self.assertIn('bootstrap.sh', launch)
+        self.assertNotIn('python3 server.py', launch)
 
     def test_deploy_creates_remote_dir_before_scp(self):
         spec = importlib.util.spec_from_file_location(

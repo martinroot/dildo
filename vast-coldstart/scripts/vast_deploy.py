@@ -372,7 +372,7 @@ def deploy(cfg, state, api, transport):
             env['ZIMAGE_LORA_DIR'] = m['lora_dir']
         env_prefix = ' '.join(f'{k}={shlex.quote(str(v))}' for k, v in env.items())
         launch = (f'cd {shlex.quote(remote + "/app")} && setsid env {env_prefix} '
-                  f'python3 server.py > {shlex.quote(remote + "/server.log")} 2>&1 < /dev/null &')
+                  f'bash bootstrap.sh > {shlex.quote(remote + "/server.log")} 2>&1 < /dev/null &')
         transport.ssh(inst, f'bash -lc {shlex.quote(launch)} >/dev/null 2>&1 </dev/null')
         health = wait_health(transport, inst, cfg,
                              time.monotonic() + int(cfg['checks']['health_timeout_s']))
