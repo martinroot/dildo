@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Contract tests for the Vast cold-start scaffold. Stdlib unittest only."""
 import json
+import importlib.util
 import os
 import subprocess
 import sys
@@ -9,6 +10,7 @@ import threading
 import time
 import unittest
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -41,6 +43,29 @@ def request(url, method='GET', body=None, headers=None):
             return e.code, json.loads(body)
         except ValueError:
             return e.code, {'error': {'message': body}}
+
+
+class VastApiTests(unittest.TestCase):
+    def test_offers_accepts_gpu_names_as_list(self):
+        spec = importlib.util.spec_from_file_location(
+            'vast_deploy_under_test', ROOT / 'scripts' / 'vast_deploy.py')
+        assert spec is not None and spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        class FakeVast(module.VastAPI):
+            def __init__(self):
+                self.last = None
+
+            def request(self, method, path, body=None):
+                self.last = (method, path, body)
+                return []
+
+        cfg = json.loads((ROOT / 'config.example.json').read_text())
+        api = FakeVast()
+        api.offers(cfg)
+        query = urllib.parse.parse_qs(api.last[1].split('?', 1)[1])['q'][0]
+        self.assertEqual(json.loads(query)['gpu_name'], {'in': cfg['gpu']['gpu_names']})
 
 
 class CatalogTests(unittest.TestCase):

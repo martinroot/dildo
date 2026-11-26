@@ -95,7 +95,11 @@ class VastAPI:
             'reliability': {'gte': float(g.get('reliability', 0.95))},
             'limit': 30,
         }
-        names = [x.strip() for x in g.get('gpu_names', '').split(',') if x.strip()]
+        raw_names = g.get('gpu_names', '')
+        if isinstance(raw_names, str):
+            names = [x.strip() for x in raw_names.split(',') if x.strip()]
+        else:
+            names = [str(x).strip() for x in (raw_names or []) if str(x).strip()]
         if names:
             query['gpu_name'] = {'in': names}
         result = self.request('GET', '/bundles/?' + urllib.parse.urlencode({'q': json.dumps(query)}))
