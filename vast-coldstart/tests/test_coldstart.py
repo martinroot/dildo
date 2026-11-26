@@ -160,6 +160,14 @@ class DeployDryRunTests(unittest.TestCase):
         self.assertNotEqual(r.returncode, 0)
         self.assertIn('tracked instance', r.stdout + r.stderr)
 
+    def test_dry_run_smoke_waits_for_terminal_task_and_checks_png(self):
+        state = Path(tempfile.mkdtemp()) / 'state'
+        r = self.run_deploy(state)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        out = json.loads(r.stdout)
+        self.assertEqual(out['smoke']['status'], 'succeeded')
+        self.assertTrue(out['smoke']['asset_checked'])
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -197,14 +197,27 @@ class SSHTransport:
 
 
 class MockTransport:
+    """Deterministic in-process Vast double for --dry-run."""
+
     def ssh(self, inst, command, timeout=45):
         if 'nvidia-smi' in command:
             return 'NVIDIA RTX 3090 (mock), 24576 MB\n'
         if '/healthz' in command:
             return json.dumps({'status': 'ok', 'engine': 'zimage', 'model': 'z-image-spicy'})
         if '-X POST' in command:
-            return json.dumps({'ok': True, 'status': 'queued', 'task_id': 'task_mock0000001',
-                               'model': 'z-image-spicy'})
+            return json.dumps({
+                'id': 'task_mock0000001', 'status': 'queued', 'model': 'z-image-spicy',
+            })
+        if '/v1/tasks/task_mock0000001' in command:
+            return json.dumps({
+                'id': 'task_mock0000001', 'status': 'succeeded', 'model': 'z-image-spicy',
+                'output': {'assets': [{
+                    'type': 'image',
+                    'path': '/workspace/zimage-output/task_mock0000001/0.png',
+                }]},
+            })
+        if '/files/task_mock0000001/0.png' in command:
+            return 'PNG_OK'
         return ''
 
     def scp(self, inst, source, dest, timeout=600):
@@ -263,17 +276,52 @@ def wait_health(transport, inst, cfg, deadline):
     raise TimeoutError('Server did not pass healthcheck in time')
 
 
+def _ssh_json(transport, inst, cmd, timeout=30):
+    raw = transport.ssh(inst, cmd, timeout)
+    return json.loads(raw.strip().splitlines()[-1])
+
+
 def smoke(transport, inst, cfg):
     port = cfg['remote']['port']
     model = cfg['model']['public_id']
+    base = f'http://127.0.0.1:{port}'
     payload = json.dumps(cfg['smoke'], ensure_ascii=False)
-    cmd = (f"curl -fsS -X POST http://127.0.0.1:{port}/v1/{model} "
-           f"-H 'Content-Type: application/json' -d {shlex.quote(payload)}")
-    raw = transport.ssh(inst, cmd, int(cfg['checks']['smoke_timeout_s']))
-    result = json.loads(raw.strip().splitlines()[-1])
-    ok = bool(result.get('ok')) or result.get('status') in ('queued', 'processing', 'succeeded')
-    return {'ok': ok, 'task_id': result.get('task_id') or result.get('id'),
-            'status': result.get('status', 'queued')}
+    submit = (
+        f"curl -fsS -X POST {base}/v1/{model} "
+        f"-H 'Content-Type: application/json' -d {shlex.quote(payload)}"
+    )
+    task = _ssh_json(transport, inst, submit, int(cfg['checks']['smoke_timeout_s']))
+    tid = task.get('id') or task.get('task_id')
+    if not tid:
+        return {'ok': False, 'error': 'no task id in submit response'}
+
+    deadline = time.monotonic() + int(cfg['checks']['smoke_timeout_s'])
+    last = task
+    while time.monotonic() < deadline:
+        last = _ssh_json(transport, inst, f'curl -fsS {base}/v1/tasks/{tid}', 20)
+        if last.get('status') in ('succeeded', 'failed', 'cancelled'):
+            break
+        time.sleep(0 if cfg.get('_dry_run') else 2)
+
+    if last.get('status') != 'succeeded':
+        return {'ok': False, 'task_id': tid, 'status': last.get('status', 'timeout')}
+
+    png_cmd = (
+        f"curl -fsS {base}/files/{tid}/0.png -o /tmp/zimg-smoke.png "
+        "&& python3 -c 'import pathlib,sys; b=pathlib.Path(\"/tmp/zimg-smoke.png\").read_bytes(); "
+        "sys.exit(0 if b.startswith(bytes([137,80,78,71,13,10,26,10])) else 1)'"
+    )
+    try:
+        transport.ssh(inst, png_cmd, 30)
+        asset_checked = True
+    except RuntimeError:
+        asset_checked = False
+    return {
+        'ok': asset_checked,
+        'task_id': tid,
+        'status': 'succeeded',
+        'asset_checked': asset_checked,
+    }
 
 
 def deploy(cfg, state, api, transport):
