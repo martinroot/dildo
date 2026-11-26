@@ -156,6 +156,10 @@ class ImageArtifactTests(unittest.TestCase):
         self.assertIn('ZIMAGE_INSTALL_DEPS', text)
         self.assertIn('pip install', text)
 
+    def test_requirements_include_transformers_for_zimage_pipeline(self):
+        text = (ROOT / 'image' / 'z-image' / 'requirements.txt').read_text()
+        self.assertIn('transformers>=4.41.2', text)
+
     def test_dockerfile_installs_runtime_and_exposes_port(self):
         dockerfile = (ROOT / 'image' / 'z-image' / 'Dockerfile').read_text()
         requirements = (ROOT / 'image' / 'z-image' / 'requirements.txt').read_text()
