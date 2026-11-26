@@ -164,6 +164,53 @@ class ImageArtifactTests(unittest.TestCase):
         self.assertIn('EXPOSE 8096', dockerfile)
 
 
+class SmokeFailureTests(unittest.TestCase):
+    def setUp(self):
+        spec = importlib.util.spec_from_file_location(
+            'vast_deploy_failure', ROOT / 'scripts' / 'vast_deploy.py')
+        assert spec is not None and spec.loader is not None
+        self.module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.module)
+
+        class FailingTransport(self.module.MockTransport):
+            def ssh(self, inst, command, timeout=45):
+                if '-X POST' in command:
+                    return json.dumps({'id': 'task_fail0000001', 'status': 'queued'})
+                if '/v1/tasks/task_fail0000001' in command:
+                    return json.dumps({
+                        'id': 'task_fail0000001', 'status': 'failed',
+                        'error': {'message': 'CUDA out of memory'},
+                    })
+                return super().ssh(inst, command, timeout)
+
+        self.transport = FailingTransport()
+        self.cfg = json.loads((ROOT / 'config.example.json').read_text())
+        self.cfg['_dry_run'] = True
+
+    def test_smoke_reports_terminal_error(self):
+        result = self.module.smoke(self.transport, {}, self.cfg)
+        self.assertFalse(result['ok'])
+        self.assertEqual(result['status'], 'failed')
+        self.assertEqual(result['error']['message'], 'CUDA out of memory')
+
+    def test_deploy_keeps_instance_when_release_disabled(self):
+        self.cfg['release_after_smoke'] = False
+        state = Path(tempfile.mkdtemp()) / 'state'
+        api = self.module.MockAPI()
+        result = self.module.deploy(self.cfg, state, api, self.module.MockTransport())
+        self.assertFalse(result['released'])
+        self.assertTrue(api.all_instances)
+
+    def test_deploy_keeps_instance_on_failure_when_configured(self):
+        self.cfg['keep_on_failure'] = True
+        state = Path(tempfile.mkdtemp()) / 'state'
+        api = self.module.MockAPI()
+        with self.assertRaises(RuntimeError):
+            self.module.deploy(self.cfg, state, api, self.transport)
+        self.assertTrue(api.all_instances)
+        self.assertTrue(json.loads((state / 'instance.json').read_text()).get('id'))
+
+
 class DeployOrderTests(unittest.TestCase):
     def test_deploy_starts_server_detached(self):
         spec = importlib.util.spec_from_file_location(

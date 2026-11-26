@@ -308,7 +308,10 @@ def smoke(transport, inst, cfg):
         time.sleep(0 if cfg.get('_dry_run') else 2)
 
     if last.get('status') != 'succeeded':
-        return {'ok': False, 'task_id': tid, 'status': last.get('status', 'timeout')}
+        return {
+            'ok': False, 'task_id': tid, 'status': last.get('status', 'timeout'),
+            'error': last.get('error'),
+        }
 
     png_cmd = (
         f"curl -fsS {base}/files/{tid}/0.png -o /tmp/zimg-smoke.png "
@@ -375,7 +378,7 @@ def deploy(cfg, state, api, transport):
                              time.monotonic() + int(cfg['checks']['health_timeout_s']))
         result['smoke'] = smoke(transport, inst, cfg)
         if not result['smoke']['ok']:
-            raise RuntimeError('Smoke generation did not return a task')
+            raise RuntimeError('Smoke generation failed: ' + json.dumps(result['smoke']))
         result.update({'instance_id': iid, 'label': label, 'gpu': gpu_info,
                        'dph_total': offer.get('dph_total'), 'health': health})
         if cfg.get('release_after_smoke', True):
@@ -388,6 +391,7 @@ def deploy(cfg, state, api, transport):
             result['released'] = True
         else:
             result['released'] = False
+            created = False  # keep the instance for manual inspection
         return result
     except Exception:
         try:
@@ -402,9 +406,15 @@ def deploy(cfg, state, api, transport):
     finally:
         if created:
             try:
-                api.destroy(iid)
-                write_json(state / 'instance.json', {'released_id': iid, 'released_at': utc(),
-                                                     'id': None, 'reason': 'cleanup_after_error'})
+                if cfg.get('keep_on_failure'):
+                    write_json(state / 'instance.json', {
+                        'id': iid, 'label': label, 'actual_status': 'kept_after_error',
+                        'updated_at': utc(), 'reason': 'kept_after_error',
+                    })
+                else:
+                    api.destroy(iid)
+                    write_json(state / 'instance.json', {'released_id': iid, 'released_at': utc(),
+                                                         'id': None, 'reason': 'cleanup_after_error'})
             except Exception:
                 # Keep the ID so the operator can release it manually.
                 pass
