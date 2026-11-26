@@ -126,6 +126,11 @@ class ImageArtifactTests(unittest.TestCase):
         self.assertIn('python3 server.py', text)
         self.assertIn('healthz', text)
 
+    def test_bootstrap_installs_requirements_by_default(self):
+        text = (ROOT / 'image' / 'z-image' / 'bootstrap.sh').read_text()
+        self.assertIn('ZIMAGE_INSTALL_DEPS', text)
+        self.assertIn('pip install', text)
+
     def test_dockerfile_installs_runtime_and_exposes_port(self):
         dockerfile = (ROOT / 'image' / 'z-image' / 'Dockerfile').read_text()
         requirements = (ROOT / 'image' / 'z-image' / 'requirements.txt').read_text()

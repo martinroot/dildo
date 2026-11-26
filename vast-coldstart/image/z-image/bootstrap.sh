@@ -11,8 +11,14 @@ export ZIMAGE_PRECISION="${ZIMAGE_PRECISION:-bf16}"
 export ZIMAGE_STEPS="${ZIMAGE_STEPS:-9}"
 export ZIMAGE_ENGINE="${ZIMAGE_ENGINE:-auto}"
 export ZIMAGE_PRELOAD="${ZIMAGE_PRELOAD:-1}"
+export ZIMAGE_INSTALL_DEPS="${ZIMAGE_INSTALL_DEPS:-1}"
 
 mkdir -p "$ZIMAGE_OUTPUT_DIR"
+
+if [ "$ZIMAGE_INSTALL_DEPS" = "1" ] && [ -f requirements.txt ]; then
+  echo "[bootstrap] installing python dependencies from requirements.txt"
+  python3 -m pip install --no-cache-dir -r requirements.txt
+fi
 
 if command -v nvidia-smi >/dev/null 2>&1; then
   echo "[bootstrap] GPU: $(nvidia-smi --query-gpu=name,memory.total --format=csv,noheader | head -1)"
