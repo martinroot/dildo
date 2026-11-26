@@ -182,15 +182,15 @@ class Vast:
     def ssh(self,inst,command,timeout=45):
         opts,host,port=self.ssh_args(inst)
         try:
-            r=subprocess.run(['ssh',*opts,'-p',port,'root@'+host,command],text=True,capture_output=True,timeout=timeout)
+            r=subprocess.run(['ssh',*opts,'-p',port,'root@'+host,command],text=False,capture_output=True,timeout=timeout)
         except subprocess.TimeoutExpired as exc:
             raise CycleFailure('SSH timeout after %ss: %s'%(timeout,command[:90]),'transient','ssh') from exc
         except OSError as exc:
             raise CycleFailure('SSH cannot start: '+redact(exc),'transient','ssh') from exc
         if r.returncode:
-            detail=((r.stderr or '')+'\\n'+(r.stdout or '')).strip()[-400:]
+            detail=(((r.stderr or b'')+b'\n'+(r.stdout or b'')).decode('utf-8','replace')).strip()[-400:]
             raise CycleFailure('SSH failed (%d): %s'%(r.returncode,redact(detail) or command[:90]),'transient','ssh')
-        return r.stdout
+        return (r.stdout or b'').decode('utf-8','replace')
 
     def remote_json(self,inst,path):
         """Read small remote JSON; tolerate missing/truncated files instead of crashing the cycle."""
@@ -404,7 +404,7 @@ class Vast:
                                 parsed=self.remote_json(inst,remote+'/jobs/'+jid+'/'+name)
                                 if parsed: write_json(d/name,parsed)
                             else: (d/name).write_text(content)
-                    except (CycleFailure,RuntimeError,subprocess.TimeoutExpired) as exc:
+                    except Exception as exc:
                         print('Telemetry poll warning: '+redact(exc)[:140],flush=True)
                 if state=='running' and read_json(d/'progress.json').get('phase')=='training' and read_json(d/'status.json').get('phase')!='training':
                     phase('training')
@@ -501,7 +501,7 @@ def main():
         except Exception as exc:
             # No provider key, bearer token or raw request URL in portal logs.
             message=redact(exc)
-            category,phase=(exc.category,exc.phase) if isinstance(exc,CycleFailure) else ('fatal',None)
+            category,phase=(exc.category,exc.phase) if isinstance(exc,CycleFailure) else (('fatal',None) if isinstance(exc,(ValueError,KeyError,TypeError)) else ('transient',None))
             # Blacklist only a fatal provider-level rejection; never for network blips
             # or for failures after the instance was being used.
             if args.action=='cycle' and category=='fatal' and phase=='provider':

@@ -105,5 +105,25 @@ v = FakeVast('success')
 orig = v.ssh
 v.ssh = lambda inst, command, timeout=45: '{"state":"completed",' + 'x' * 20
 assert v.remote_json(None, '/x') == {}, 'malformed JSON must not raise'
+
+# Binary remote output must never abort telemetry with UnicodeDecodeError
+class _R:
+    returncode = 0
+    stderr = b''
+    stdout = b'prefix\x88suffix'
+import subprocess
+_old_run = subprocess.run
+subprocess.run = lambda *a, **k: _R()
+try:
+    (m.FT_DIR/'id_ed25519').write_text('dummy')
+    m.SSH_KEY = m.FT_DIR/'id_ed25519'
+    import os; os.environ['VAST_API_KEY']='dummy'
+    v = m.Vast()
+    got = v.ssh({'ssh_host':'h','ssh_port':22}, 'echo x')
+    assert '\ufffd' in got, repr(got)
+finally:
+    subprocess.run = _old_run
+print('binary ssh decode OK')
+
 print('ALL ASSERTIONS PASSED')
 shutil.rmtree(BASE, ignore_errors=True)
