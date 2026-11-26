@@ -10,6 +10,7 @@ import re
 import signal
 import subprocess
 import sys
+import traceback
 from tempfile import NamedTemporaryFile
 import time
 
@@ -152,9 +153,13 @@ def run_queue(root, model, threads, timeout, once, executor="local"):
                 if pending is not None:
                     try:
                         run_job(root, pending, model, threads, timeout)
-                    except (OSError, ValueError) as error:
-                        print(f"{pending.name}: {error}", file=sys.stderr)
-                        status(pending, "failed", "error", "Воркер не смог обработать задание.")
+                    except Exception as error:
+                        print(f"{pending.name}: {type(error).__name__}: {error}", file=sys.stderr)
+                        traceback.print_exc(file=sys.stderr)
+                        try:
+                            status(pending, "failed", "error", f"Воркер: {type(error).__name__}: {error}")
+                        except Exception as status_error:
+                            print(f"{pending.name}: status write failed: {status_error}", file=sys.stderr)
                 if once:
                     return 0
                 if pending is None:
