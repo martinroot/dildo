@@ -356,8 +356,8 @@ def deploy(cfg, state, api, transport):
                                     now + int(cfg['checks']['ready_timeout_s']))
         remote = cfg['remote']['dir']
         out = cfg['remote']['output_dir']
-        transport.scp(inst, ROOT / 'image' / 'z-image', remote + '/app')
         transport.ssh(inst, f'mkdir -p {shlex.quote(out)} {shlex.quote(remote)}')
+        transport.scp(inst, ROOT / 'image' / 'z-image', remote + '/app')
         m = cfg['model']
         env = {
             'ZIMAGE_MODEL_ID': m['hf_model'], 'ZIMAGE_PUBLIC_MODEL': m['public_id'],

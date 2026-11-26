@@ -164,6 +164,39 @@ class ImageArtifactTests(unittest.TestCase):
         self.assertIn('EXPOSE 8096', dockerfile)
 
 
+class DeployOrderTests(unittest.TestCase):
+    def test_deploy_creates_remote_dir_before_scp(self):
+        spec = importlib.util.spec_from_file_location(
+            'vast_deploy_order', ROOT / 'scripts' / 'vast_deploy.py')
+        assert spec is not None and spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        class OrderedTransport(module.MockTransport):
+            def __init__(self):
+                self.events = []
+
+            def ssh(self, inst, command, timeout=45):
+                self.events.append(('ssh', command))
+                return super().ssh(inst, command, timeout)
+
+            def scp(self, inst, source, dest, timeout=600):
+                self.events.append(('scp', dest))
+                return super().scp(inst, source, dest, timeout)
+
+        cfg = json.loads((ROOT / 'config.example.json').read_text())
+        cfg['_dry_run'] = True
+        cfg['release_after_smoke'] = True
+        transport = OrderedTransport()
+        state = Path(tempfile.mkdtemp()) / 'state'
+        module.deploy(cfg, state, module.MockAPI(), transport)
+
+        scp_at = next(i for i, e in enumerate(transport.events) if e[0] == 'scp')
+        mkdir_at = next(i for i, e in enumerate(transport.events)
+                        if e[0] == 'ssh' and 'mkdir -p' in e[1])
+        self.assertLess(mkdir_at, scp_at)
+
+
 class DeployDryRunTests(unittest.TestCase):
     def run_deploy(self, state_dir, extra=None):
         cmd = [sys.executable, str(ROOT / 'scripts' / 'vast_deploy.py'), 'deploy',
