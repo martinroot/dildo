@@ -402,7 +402,10 @@ class Vast:
                         if content:
                             if name.endswith('.json'):
                                 parsed=self.remote_json(inst,remote+'/jobs/'+jid+'/'+name)
-                                if parsed: write_json(d/name,parsed)
+                                if parsed:
+                                    if name=='status.json' and parsed.get('state')=='running' and read_json(d/'progress.json').get('phase')=='training':
+                                        parsed['phase']='training'
+                                    write_json(d/name,parsed)
                             else: (d/name).write_text(content)
                     except Exception as exc:
                         print('Telemetry poll warning: '+redact(exc)[:140],flush=True)
