@@ -406,6 +406,8 @@ class Vast:
                             else: (d/name).write_text(content)
                     except (CycleFailure,RuntimeError,subprocess.TimeoutExpired) as exc:
                         print('Telemetry poll warning: '+redact(exc)[:140],flush=True)
+                if state=='running' and read_json(d/'progress.json').get('phase')=='training' and read_json(d/'status.json').get('phase')!='training':
+                    phase('training')
                 if state in ('completed','failed','cancelled'): break
                 setup=self.ssh(inst,'tail -c 6000 '+remote+'/setup.log')
                 (d/'setup.log').write_text(setup)
