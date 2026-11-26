@@ -165,6 +165,31 @@ class ImageArtifactTests(unittest.TestCase):
 
 
 class DeployOrderTests(unittest.TestCase):
+    def test_deploy_starts_server_detached(self):
+        spec = importlib.util.spec_from_file_location(
+            'vast_deploy_detach', ROOT / 'scripts' / 'vast_deploy.py')
+        assert spec is not None and spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        class RecordingTransport(module.MockTransport):
+            def __init__(self):
+                self.commands = []
+
+            def ssh(self, inst, command, timeout=45):
+                self.commands.append(command)
+                return super().ssh(inst, command, timeout)
+
+        cfg = json.loads((ROOT / 'config.example.json').read_text())
+        cfg['_dry_run'] = True
+        cfg['release_after_smoke'] = True
+        transport = RecordingTransport()
+        module.deploy(cfg, Path(tempfile.mkdtemp()) / 'state', module.MockAPI(), transport)
+
+        launch = next(c for c in transport.commands if 'python3 server.py' in c)
+        self.assertIn('setsid', launch)
+        self.assertIn('</dev/null', launch)
+
     def test_deploy_creates_remote_dir_before_scp(self):
         spec = importlib.util.spec_from_file_location(
             'vast_deploy_order', ROOT / 'scripts' / 'vast_deploy.py')

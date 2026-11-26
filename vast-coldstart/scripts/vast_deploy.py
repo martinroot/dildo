@@ -368,8 +368,9 @@ def deploy(cfg, state, api, transport):
         if m.get('lora_dir'):
             env['ZIMAGE_LORA_DIR'] = m['lora_dir']
         env_prefix = ' '.join(f'{k}={shlex.quote(str(v))}' for k, v in env.items())
-        transport.ssh(inst, f'cd {shlex.quote(remote + "/app")} && nohup env {env_prefix} '
-                            f'python3 server.py > {shlex.quote(remote + "/server.log")} 2>&1 < /dev/null &')
+        launch = (f'cd {shlex.quote(remote + "/app")} && setsid env {env_prefix} '
+                  f'python3 server.py > {shlex.quote(remote + "/server.log")} 2>&1 < /dev/null &')
+        transport.ssh(inst, f'bash -lc {shlex.quote(launch)} >/dev/null 2>&1 </dev/null')
         health = wait_health(transport, inst, cfg,
                              time.monotonic() + int(cfg['checks']['health_timeout_s']))
         result['smoke'] = smoke(transport, inst, cfg)
