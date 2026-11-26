@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+state/
+output/
+*.log
+*.tgz
+.env

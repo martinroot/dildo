@@ -1,0 +1,6 @@
+# Already in the PyTorch/CUDA base image; pin diffusers around ZImagePipeline support.
+diffusers>=0.36.0
+accelerate>=1.2.0
+safetensors>=0.4.5
+huggingface_hub>=0.30.0
+Pillow>=10.0.0

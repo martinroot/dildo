@@ -1,0 +1,42 @@
+{
+  "vast_api": "https://console.vast.ai/api/v0",
+  "vast_key_file": "/etc/ft-node/vast_api_key",
+  "gpu": {
+    "min_vram_gb": 16,
+    "max_dph": 0.8,
+    "disk_gb": 50,
+    "gpu_names": ["RTX 3090", "RTX 4090", "RTX A5000", "A4000", "L4"],
+    "reliability": 0.95
+  },
+  "instance": {
+    "image": "ghcr.io/martinroot/bigpu-coldstart/z-image:latest",
+    "template_hash": null,
+    "label_prefix": "zimg-cs-",
+    "runtype": "ssh"
+  },
+  "ssh_key": "/etc/ft-node/id_ed25519",
+  "remote": {
+    "dir": "/workspace/zimage-coldstart",
+    "output_dir": "/workspace/zimage-output",
+    "port": 8096
+  },
+  "model": {
+    "public_id": "z-image-spicy",
+    "hf_model": "Tongyi-MAI/Z-Image-Turbo",
+    "precision": "bf16",
+    "steps": 9,
+    "lora_dir": null
+  },
+  "checks": {
+    "ready_timeout_s": 900,
+    "health_timeout_s": 300,
+    "smoke_timeout_s": 180
+  },
+  "release_after_smoke": true,
+  "smoke": {
+    "prompt": "a low-poly fox in a snowy forest, golden hour",
+    "width": 768,
+    "height": 512,
+    "seed": 7
+  }
+}
